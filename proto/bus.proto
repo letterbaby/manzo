@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package bus;
+
+enum Cmd
+{
+	NONE = 0;
+	REG_SVR = 1; // BUS
+	PING = 2; // BUS
+	NEW_SVR = 3; // BUS
+	ROUTE_MSG =4; // BUS
+}
+
+enum ErrorCode
+{
+	SUCCESS = 0;
+	
+	SYSTEM_UNKNOW = 999; // 未知错误	
+}
+
+message Ping
+{
+}
+
+message RegSvrInfo
+{
+	string srcId  = 1;
+	string destId = 2;
+}
+
+message NewSvrInfo
+{
+	string destId =1;
+	string ip=2;
+	string port = 3;
+}
+
+message RouteInfo
+{
+	int32 destId  =1; // 目标id, -1,全部
+    string destSvr  = 2; //世界ID_功能ID_逻辑ID, 可以用*
+	string srcSvr = 3;// A->B->C
+	
+	bytes msg= 4; //透传,标准的网络协议结构
+}
+
+message CommonMessage
+{
+	Cmd code = 1;
+	ErrorCode errorCode = 2;
+	int32 seqId = 3; // rpc用
+
+	Ping ping=10;
+	RegSvrInfo svrInfo = 11;// BUS注册服务器
+	NewSvrInfo newSvrInfo=12; // BUS收到新的dest 
+	RouteInfo routeInfo = 13; // BUS路由信息 
+}
