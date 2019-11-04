@@ -1,15 +1,16 @@
-// Thread unsafe github.com/letterbaby/manzo for MyMySQL
+// Thread unsafe engine for MyMySQL
 package native
 
 import (
 	"bufio"
 	"fmt"
-	"github.com/ziutek/mymysql/mysql"
 	"io"
 	"net"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ziutek/mymysql/mysql"
 )
 
 type serverInfo struct {
@@ -820,7 +821,7 @@ func (tr Transaction) IsValid() bool {
 	return tr.Conn != nil
 }
 
-// Binds statement to the context of transaction. For native github.com/letterbaby/manzo this is
+// Binds statement to the context of transaction. For native engine this is
 // identity function.
 func (tr Transaction) Do(st mysql.Stmt) mysql.Stmt {
 	if s, ok := st.(*Stmt); !ok || s.my != tr.Conn {

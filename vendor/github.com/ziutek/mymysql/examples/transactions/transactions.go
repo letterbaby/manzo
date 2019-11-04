@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+
 	"github.com/ziutek/mymysql/mysql"
 	_ "github.com/ziutek/mymysql/thrsafe"
 	//_ "github.com/ziutek/mymysql/native"
@@ -51,7 +52,7 @@ func main() {
 	}
 
 	fmt.Print("Create A table... ")
-	_, err = db.Start("create table A (name varchar(9), number int) github.com/letterbaby/manzo=InnoDB")
+	_, err = db.Start("create table A (name varchar(9), number int) engine=InnoDB")
 	checkError(err)
 	printOK()
 

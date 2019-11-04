@@ -81,7 +81,7 @@ func (self *MyOps) ExcuteSql(sql string) ([]mysql.Row, mysql.Result, error) {
 }
 
 // 创建表
-func (self *MyOps) CreateTable(github.com/letterbaby/manzo string, autoid int, comment string,
+func (self *MyOps) CreateTable(engine string, autoid int, comment string,
 	idlst []string, idxlst []string, prmlst []string) bool {
 
 	strids := ""
@@ -101,7 +101,7 @@ func (self *MyOps) CreateTable(github.com/letterbaby/manzo string, autoid int, c
 	}
 	strids = strids + stridx
 
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (`id` INT UNSIGNED AUTO_INCREMENT %s) ENGINE=%s DEFAULT CHARSET=utf8 COMMENT='%s' AUTO_INCREMENT=%d;", self.tbl, strids, github.com/letterbaby/manzo, comment, autoid)
+	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (`id` INT UNSIGNED AUTO_INCREMENT %s) ENGINE=%s DEFAULT CHARSET=utf8 COMMENT='%s' AUTO_INCREMENT=%d;", self.tbl, strids, engine, comment, autoid)
 	_, _, err := self.ExcuteSql(sql)
 	if err != nil {
 		logger.Error("MyOps:CreateTable sql:%v,I:%v", sql, err)
