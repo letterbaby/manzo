@@ -101,6 +101,6 @@ type Result interface {
 	GetLastRow() (Row, error)
 }
 
-// New can be used to establish a connection. It is set by imported github.com/letterbaby/manzo
+// New can be used to establish a connection. It is set by imported engine
 // (see mymysql/native, mymysql/thrsafe)
 var New func(proto, laddr, raddr, user, passwd string, db ...string) Conn
