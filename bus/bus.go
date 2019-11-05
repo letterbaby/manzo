@@ -46,7 +46,6 @@ type BusClient struct {
 
 	network.TcpClient
 
-	Ok     bool
 	Id     string
 	seqId  int32
 	caller map[int32]chan *network.RawMessage
@@ -81,7 +80,7 @@ func (self *BusClient) init(cfg *network.Config) bool {
 		return false
 	}
 
-	self.Ok = false
+	self.Authed = false
 	self.caller = make(map[int32]chan *network.RawMessage, 0)
 
 	self.OnData = self.OnBusData
@@ -103,6 +102,20 @@ func (self *BusClient) init(cfg *network.Config) bool {
 		self.Connect(true)
 	}()
 	return true
+}
+
+func (self *BusClient) SetAuthed() {
+	self.Lock()
+	defer self.Unlock()
+
+	self.Authed = true
+}
+
+func (self *BusClient) GetAuthed() bool {
+	self.RLock()
+	defer self.RUnlock()
+
+	return self.Authed
 }
 
 func (self *BusClient) OnBusData(msg *network.RawMessage) *network.RawMessage {
@@ -186,8 +199,10 @@ type BusClientMgr struct {
 	//rbin int // 轮询
 	buss *container.ListMap
 
-	cfg    *Config
-	OnData func(msg *network.RawMessage) *network.RawMessage
+	cfg *Config
+
+	OnNewBus func(id string)
+	OnData   func(msg *network.RawMessage) *network.RawMessage
 
 	parser network.IMessage
 }
@@ -255,16 +270,18 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 
 func (self *BusClientMgr) busOk(id string) {
 	self.Lock()
-	defer self.Unlock()
-
 	v, ok, _ := self.buss.Get(id)
+	self.Unlock()
 
 	if !ok {
 		logger.Error("BusMgr:BusOk id:%v", id)
 		return
 	}
+	v.(*BusClient).SetAuthed()
 
-	v.(*BusClient).Ok = true
+	if self.OnNewBus != nil {
+		self.OnNewBus(id)
+	}
 }
 
 func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage {
@@ -296,7 +313,7 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 
 	for _, v := range hs {
 		clt := v.(*BusClient)
-		if clt.Ok && (wfuncId == "" || GetServerWorldFuncId(clt.Id) == wfuncId) {
+		if clt.GetAuthed() && (wfuncId == "" || GetServerWorldFuncId(clt.Id) == wfuncId) {
 			t = append(t, clt)
 		}
 	}
@@ -329,6 +346,11 @@ func (self *BusClientMgr) RecvRouteMsg(msgdata *CommonMessage) {
 	}
 }
 
+// wfuncId要去哪里
+// all是不是要去所有的wfuncId
+// destsvr到wfuncId不是要下车还是继续
+// sync是不是rpc
+// to发送超时
 func (self *BusClientMgr) SendRouteMsg(destId int32, destSvr string,
 	msg *network.RawMessage, sync bool, to int32, wfuncId string, all bool) *network.RawMessage {
 
