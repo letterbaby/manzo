@@ -304,7 +304,7 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 
 // 轮询\广播\指定
 func (self *BusClientMgr) SendData(msg *network.RawMessage,
-	sync bool, to int32, wfuncId string, all bool) *network.RawMessage {
+	sync bool, to int32, svrId string, all bool) *network.RawMessage {
 	self.RLock()
 	hs := self.buss.Values()
 	self.RUnlock()
@@ -313,13 +313,16 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 
 	for _, v := range hs {
 		clt := v.(*BusClient)
-		if clt.GetAuthed() && (wfuncId == "" || GetServerWorldFuncId(clt.Id) == wfuncId) {
+		// 必须认证过的
+		if clt.GetAuthed() && (svrId == "" || (GetServerWorldFuncId(svrId) == GetServerWorldFuncId(clt.Id) &&
+			(GetServerLogicId(svrId) == "*" ||
+				GetServerLogicId(svrId) == GetServerLogicId(clt.Id)))) {
 			t = append(t, clt)
 		}
 	}
 
 	if len(t) <= 0 {
-		logger.Error("BusMgr:SendData wfuncId:%v", wfuncId)
+		logger.Error("BusMgr:SendData svrId:%v", svrId)
 		return nil
 	}
 
@@ -346,17 +349,17 @@ func (self *BusClientMgr) RecvRouteMsg(msgdata *CommonMessage) {
 	}
 }
 
-// wfuncId要去哪里
+// svrId要去哪里
 // all是不是要去所有的wfuncId
 // destsvr到wfuncId不是要下车还是继续
 // sync是不是rpc
 // to发送超时
 func (self *BusClientMgr) SendRouteMsg(destId int32, destSvr string,
-	msg *network.RawMessage, sync bool, to int32, wfuncId string, all bool) *network.RawMessage {
+	msg *network.RawMessage, sync bool, to int32, svrId string, all bool) *network.RawMessage {
 
 	rmsg := NewRouteRawMessageOut(destId, destSvr, msg, self.cfg.Parser)
 	if rmsg != nil {
-		return self.SendData(rmsg, sync, to, wfuncId, all)
+		return self.SendData(rmsg, sync, to, svrId, all)
 	}
 	return nil
 }
