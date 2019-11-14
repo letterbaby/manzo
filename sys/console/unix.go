@@ -1,6 +1,6 @@
 // +build !windows
 
-package sys
+package console
 
 func SetConsoleTitle(title string) {
 
