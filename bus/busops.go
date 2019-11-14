@@ -8,37 +8,50 @@ import (
 	"github.com/letterbaby/manzo/network"
 )
 
+//WorldId(256)| FuncId (256) | LogicId(256)
+// 	8        |	    8     |  8
 // 服务器id规则  世界ID_功能ID_逻辑ID
-func GetServerWorldFuncId(id string) string {
+func MakeServerId(id string) int64 {
 	ids := strings.Split(id, "_")
 	if len(ids) != 3 {
-		return "-1"
+		return 0
 	}
-	return ids[0] + "_" + ids[1]
+
+	wid, err := strconv.Atoi(ids[0])
+	if err != nil || wid < 0 || wid > 255 {
+		return 0
+	}
+	fid, _ := strconv.Atoi(ids[1])
+	if err != nil || fid < 0 || fid > 255 {
+		return 0
+	}
+	lid, _ := strconv.Atoi(ids[2])
+	if err != nil || lid < 0 || lid > 255 {
+		return 0
+	}
+	return int64(wid<<16 | fid<<8 | lid)
 }
 
-func GetServerWorldId(id string) string {
-	ids := strings.Split(id, "_")
-	if len(ids) != 3 {
-		return "-1"
-	}
-	return ids[0]
+func GetServerWorldId(id int64) int64 {
+	return int64(byte(id >> 16))
 }
 
-func GetServerFuncId(id string) string {
-	ids := strings.Split(id, "_")
-	if len(ids) != 3 {
-		return "-1"
-	}
-	return ids[1]
+func GetServerFuncId(id int64) int64 {
+	return int64(byte(id >> 8))
 }
 
-func GetServerLogicId(id string) string {
-	ids := strings.Split(id, "_")
-	if len(ids) != 3 {
-		return "-1"
-	}
-	return ids[2]
+func GetServerLogicId(id int64) int64 {
+	return int64(byte(id))
+}
+
+func GetServerId(id int64) (int64, int64, int64) {
+	return int64(byte(id >> 16)), int64(byte(id >> 8)), int64(byte(id))
+}
+
+func IsSameWorldFuncId(sid int64, did int64) bool {
+	sw, sf, _ := GetServerId(sid)
+	dw, df, _ := GetServerId(did)
+	return sw == dw && sf == df
 }
 
 func NewBusRawMessage(msg *CommonMessage) *network.RawMessage {
@@ -77,7 +90,7 @@ func NewRouteRawMessageIn(msg []byte, parser network.IMessage) *network.RawMessa
 	return rmsg
 }
 
-func NewRouteRawMessageOut(destId int32, destSvr string,
+func NewRouteRawMessageOut(destId int64, destSvr int64,
 	msg *network.RawMessage, parser network.IMessage) *network.RawMessage {
 	buf, err := parser.Serialize(msg)
 	if err != nil {

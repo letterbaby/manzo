@@ -34,7 +34,7 @@ type IRedis interface {
 }
 
 type RedisCluster struct {
-	cfg     *Config
+	cfg  *Config
 	cluster *Cluster
 	scripts map[string]*redis.Script
 }

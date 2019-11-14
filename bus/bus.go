@@ -13,7 +13,7 @@ import (
 )
 
 type Config struct {
-	SvrId string // 服务器ID
+	SvrId int64 // 服务器ID
 
 	Parser network.IMessage
 
@@ -46,7 +46,7 @@ type BusClient struct {
 
 	network.TcpClient
 
-	Id     string
+	Id     int64
 	seqId  int32
 	caller map[int32]chan *network.RawMessage
 
@@ -201,7 +201,7 @@ type BusClientMgr struct {
 
 	cfg *Config
 
-	OnNewBus func(id string)
+	OnNewBus func(id int64)
 	OnData   func(msg *network.RawMessage) *network.RawMessage
 
 	parser network.IMessage
@@ -268,7 +268,7 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 	self.buss.Del(clt.Id)
 }
 
-func (self *BusClientMgr) busOk(id string) {
+func (self *BusClientMgr) busOk(id int64) {
 	self.Lock()
 	v, ok, _ := self.buss.Get(id)
 	self.Unlock()
@@ -304,7 +304,7 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 
 // 轮询\广播\指定
 func (self *BusClientMgr) SendData(msg *network.RawMessage,
-	sync bool, to int32, svrId string, all bool) *network.RawMessage {
+	sync bool, to int32, svrId int64, all bool) *network.RawMessage {
 	self.RLock()
 	hs := self.buss.Values()
 	self.RUnlock()
@@ -314,8 +314,8 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	for _, v := range hs {
 		clt := v.(*BusClient)
 		// 必须认证过的
-		if clt.GetAuthed() && (svrId == "" || (GetServerWorldFuncId(svrId) == GetServerWorldFuncId(clt.Id) &&
-			(GetServerLogicId(svrId) == "*" ||
+		if clt.GetAuthed() && (svrId == 0 || (IsSameWorldFuncId(svrId, clt.Id) &&
+			(GetServerLogicId(svrId) == 0 ||
 				GetServerLogicId(svrId) == GetServerLogicId(clt.Id)))) {
 			t = append(t, clt)
 		}
@@ -354,8 +354,8 @@ func (self *BusClientMgr) RecvRouteMsg(msgdata *CommonMessage) {
 // destsvr到wfuncId不是要下车还是继续
 // sync是不是rpc
 // to发送超时
-func (self *BusClientMgr) SendRouteMsg(destId int32, destSvr string,
-	msg *network.RawMessage, sync bool, to int32, svrId string, all bool) *network.RawMessage {
+func (self *BusClientMgr) SendRouteMsg(destId int64, destSvr int64,
+	msg *network.RawMessage, sync bool, to int32, svrId int64, all bool) *network.RawMessage {
 
 	rmsg := NewRouteRawMessageOut(destId, destSvr, msg, self.cfg.Parser)
 	if rmsg != nil {
@@ -369,7 +369,7 @@ func (self *BusClientMgr) SendRouteMsg(destId int32, destSvr string,
 type BusServer struct {
 	network.Agent
 
-	Id  string // client ID
+	Id  int64 // client ID
 	Mgr *BusServerMgr
 
 	OnDisconnect func()
@@ -432,7 +432,7 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 }
 
 func (self *BusServer) SendRouteMsg(msg *network.RawMessage) {
-	rmsg := NewRouteRawMessageOut(-1, "*", msg, self.Mgr.parser)
+	rmsg := NewRouteRawMessageOut(-1, 0, msg, self.Mgr.parser)
 	if rmsg != nil {
 		self.SendMsg(rmsg, 1)
 	}
@@ -442,14 +442,15 @@ func (self *BusServer) RecvRouteMsg(msg *network.RawMessage) bool {
 	msgdata := msg.MsgData.(*CommonMessage)
 	req := msgdata.RouteInfo
 
-	if GetServerWorldFuncId(req.DestSvr) == GetServerWorldFuncId(self.Mgr.cfg.SvrId) &&
-		(GetServerLogicId(req.DestSvr) == "*" ||
-			GetServerLogicId(req.DestSvr) == GetServerLogicId(self.Mgr.cfg.SvrId)) {
-		if self.OnData != nil {
-			rmsg := NewRouteRawMessageIn(req.Msg, self.Mgr.cfg.Parser)
-			if rmsg != nil {
-				self.OnData(rmsg)
-				return true
+	if IsSameWorldFuncId(req.DestSvr, self.Mgr.cfg.SvrId) {
+		if GetServerLogicId(req.DestSvr) == 0 ||
+			GetServerLogicId(req.DestSvr) == GetServerLogicId(self.Mgr.cfg.SvrId) {
+			if self.OnData != nil {
+				rmsg := NewRouteRawMessageIn(req.Msg, self.Mgr.cfg.Parser)
+				if rmsg != nil {
+					self.OnData(rmsg)
+					return true
+				}
 			}
 		}
 		// 让RawMessage回收
@@ -464,7 +465,7 @@ type BusServerMgr struct {
 	sync.RWMutex
 
 	cfg     *Config
-	servers map[string]*BusServer
+	servers map[int64]*BusServer
 
 	parser network.IMessage
 }
@@ -481,10 +482,10 @@ func (self *BusServerMgr) init(cfg *Config) {
 	self.parser = parser
 
 	self.cfg = cfg
-	self.servers = make(map[string]*BusServer, 0)
+	self.servers = make(map[int64]*BusServer, 0)
 }
 
-func (self *BusServerMgr) AddSvr(id string, svr *BusServer) {
+func (self *BusServerMgr) AddSvr(id int64, svr *BusServer) {
 	self.Lock()
 	defer self.Unlock()
 
@@ -496,7 +497,7 @@ func (self *BusServerMgr) AddSvr(id string, svr *BusServer) {
 	self.servers[id] = svr
 }
 
-func (self *BusServerMgr) DelSvr(id string) {
+func (self *BusServerMgr) DelSvr(id int64) {
 	self.Lock()
 	defer self.Unlock()
 
@@ -509,13 +510,13 @@ func (self *BusServerMgr) DelSvr(id string) {
 	delete(self.servers, id)
 }
 
-func (self *BusServerMgr) GetServersById(id string) []*BusServer {
+func (self *BusServerMgr) GetServersById(id int64) []*BusServer {
 	self.RLock()
 	defer self.RUnlock()
 
 	svrs := make([]*BusServer, 0)
 
-	if id == "*" {
+	if id == 0 {
 		for _, v := range self.servers {
 			svrs = append(svrs, v)
 		}
@@ -523,7 +524,7 @@ func (self *BusServerMgr) GetServersById(id string) []*BusServer {
 	}
 
 	lid := GetServerLogicId(id)
-	if lid != "*" {
+	if lid != 0 {
 		v, ok := self.servers[lid]
 		if ok {
 			svrs = append(svrs, v)
@@ -531,9 +532,8 @@ func (self *BusServerMgr) GetServersById(id string) []*BusServer {
 		return svrs
 	}
 
-	wfuncId := GetServerWorldFuncId(id)
 	for _, v := range self.servers {
-		if GetServerWorldFuncId(v.Id) == wfuncId {
+		if IsSameWorldFuncId(id, v.Id) {
 			svrs = append(svrs, v)
 		}
 	}
@@ -566,8 +566,8 @@ func (self *BusServerMgr) RecvRouteMsg(msgdata *CommonMessage) {
 	buf.Free()
 }
 
-func (self *BusServerMgr) NewServer(id string, ip string, port string) {
-	svrs := self.GetServersById("*")
+func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
+	svrs := self.GetServersById(0)
 	if len(svrs) <= 0 {
 		logger.Error("BusServerMgr:NewServer id:%v", id)
 		return
