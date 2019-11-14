@@ -14,7 +14,7 @@ func AttachShm(ppShmRoot *unsafe.Pointer, key int, size int) (int, bool) {
 	h, err := syscall.CreateFileMapping(
 		syscall.InvalidHandle, nil,
 		syscall.PAGE_READWRITE, 0, uint32(size), &name)
-	if 0 == h {
+	if err != nil {
 		return -1, false
 	}
 
