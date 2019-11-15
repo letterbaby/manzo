@@ -2,33 +2,51 @@ package bus
 
 import (
 	"strings"
-
+	"strconv"
+	
 	"github.com/letterbaby/manzo/buffer"
 	"github.com/letterbaby/manzo/logger"
 	"github.com/letterbaby/manzo/network"
 )
 
+/*
+type SvrId string
+
+func (self SvrId) Int64() int64 {
+	return MakeServerIdByStr(string(self))
+}
+*/
 //WorldId(256)| FuncId (256) | LogicId(256)
 // 	8        |	    8     |  8
 // 服务器id规则  世界ID_功能ID_逻辑ID
-func MakeServerId(id string) int64 {
+func MakeServerIdByStr(id string) int64 {
 	ids := strings.Split(id, "_")
 	if len(ids) != 3 {
 		return 0
 	}
 
 	wid, err := strconv.Atoi(ids[0])
-	if err != nil || wid < 0 || wid > 255 {
+	if err != nil {
 		return 0
 	}
 	fid, _ := strconv.Atoi(ids[1])
-	if err != nil || fid < 0 || fid > 255 {
+	if err != nil {
 		return 0
 	}
 	lid, _ := strconv.Atoi(ids[2])
-	if err != nil || lid < 0 || lid > 255 {
+	if err != nil {
 		return 0
 	}
+	return MakeServerId(int64(wid), int64(fid), int64(lid))
+}
+
+func MakeServerId(wid int64, fid int64, lid int64) int64 {
+	if wid < 0 || wid > 255 ||
+		fid < 0 || fid > 255 ||
+		lid < 0 || lid > 255 {
+		return 0
+	}
+
 	return int64(wid<<16 | fid<<8 | lid)
 }
 
