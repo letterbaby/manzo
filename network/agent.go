@@ -107,7 +107,7 @@ func (self *Agent) IsConnected() bool {
 
 func (self *Agent) Close() bool {
 	select {
-	case self.disconn<-1:
+	case self.disconn<-true:
 		return true
 	case defalut:
 		logger.Warning("Agent:Close conn:%v", self.Conn)
