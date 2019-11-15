@@ -40,6 +40,8 @@ type Agent struct {
 	Authed bool // 认证过了
 
 	status int32 // 当前状态
+
+	disconn chan bool
 }
 
 func NewAgent(cfg *Config) IAgent {
@@ -72,6 +74,7 @@ func (self *Agent) Init(cfg *Config) {
 	}
 
 	self.out = make(chan interface{}, self.cfg.AsyncMQ)
+	self.disconn = make(chan bool, 1)
 }
 
 func (self *Agent) SendMsg(msg interface{}, to int32) {
@@ -100,6 +103,17 @@ func (self *Agent) RecvMsg(msg *RawMessage, to int32) {
 
 func (self *Agent) IsConnected() bool {
 	return atomic.LoadInt32(&self.status) > 0
+}
+
+func (self *Agent) Close() bool {
+	select {
+	case self.disconn<-1:
+		return true
+	case defalut:
+		logger.Warning("Agent:Close conn:%v", self.Conn)
+	}
+	//close(self.disconn)
+	return false
 }
 
 func (self *Agent) Start(conn net.Conn) {
@@ -181,6 +195,8 @@ func (self *Agent) runAgent() {
 
 		case <-self.die:
 			self.flag |= SESS_KICKED_OUT
+		case <-self.disconn:
+			self.flag | = SESS_KICKED_OUT
 		}
 
 		if self.flag&SESS_KICKED_OUT != 0 {

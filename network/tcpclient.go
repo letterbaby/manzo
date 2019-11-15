@@ -18,6 +18,8 @@ type TcpClient struct {
 	OnConnect    func()
 	OnData       func(msg *RawMessage) *RawMessage
 	OnDisconnect func()
+
+	pingctrl chan bool
 }
 
 func NewTcpClient(cfg *Config) *TcpClient {
@@ -90,6 +92,7 @@ func (self *TcpClient) Hand_Start() {
 	}
 
 	if self.OnPing != nil {
+		self.pingctrl = make(chan bool, 0)
 		go self.ping()
 	}
 }
@@ -97,6 +100,10 @@ func (self *TcpClient) Hand_Start() {
 func (self *TcpClient) Hand_Close() {
 	if self.OnDisconnect != nil {
 		self.OnDisconnect()
+	}
+
+	if self.OnPing != nil {
+		self.pingctrl <- true
 	}
 
 	// 去重连
@@ -120,22 +127,25 @@ func (self *TcpClient) Hand_Message(msg *RawMessage) *RawMessage {
 func (self *TcpClient) ping() {
 	defer utils.CatchPanic()
 
-	for self.IsConnected() {
+	timer := time.NewTicker(10 * time.Second)
+	//???
+	defer func() {
+		timer.Stop()
+	}()
 
-		self.OnPing()
-		// 每10秒发送一个 心跳包
-		time.Sleep(10 * time.Second)
+	for {
+		select {
+		case <-timer.C:
+			self.OnPing()
+		case <-self.pingctrl:
+			return
+		}
 	}
 }
 
 func (self *TcpClient) Disconnect() {
 	logger.Info("TcpClient:close tcp:%v", self.Conn)
-
-	if self.Conn != nil {
-		// 停止重连
-		self.autoReconnect = false
-
-		self.Conn.Close()
-		self.Conn = nil
-	}
+	// 停止重连
+	self.autoReconnect = false
+	self.Close()
 }

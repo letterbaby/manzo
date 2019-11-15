@@ -292,8 +292,8 @@ func (self *RotatingHandler) init(classifyLvl Level, cfg *Config) {
 
 func (self *RotatingHandler) tick() {
 	//CatchPanic
-
 	timer := time.NewTicker(5 * time.Second)
+	//???
 	defer func() {
 		timer.Stop()
 	}()
