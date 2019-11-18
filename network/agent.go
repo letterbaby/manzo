@@ -107,9 +107,9 @@ func (self *Agent) IsConnected() bool {
 
 func (self *Agent) Close() bool {
 	select {
-	case self.disconn<-true:
+	case self.disconn <- true:
 		return true
-	case defalut:
+	default:
 		logger.Warning("Agent:Close conn:%v", self.Conn)
 	}
 	//close(self.disconn)
@@ -196,7 +196,7 @@ func (self *Agent) runAgent() {
 		case <-self.die:
 			self.flag |= SESS_KICKED_OUT
 		case <-self.disconn:
-			self.flag | = SESS_KICKED_OUT
+			self.flag |= SESS_KICKED_OUT
 		}
 
 		if self.flag&SESS_KICKED_OUT != 0 {
