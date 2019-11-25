@@ -11,6 +11,9 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+
+//TODO:兼容普通的Lua模式,这个有点定制
+
 // 负载
 type LSHeap []*LuaState
 
