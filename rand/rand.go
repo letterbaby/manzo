@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+const (
+	RAND_TEST = 10
+)
+
+type IWeight interface {
+	Len() int           // 长度
+	Weight(i int) int32 // 权重
+}
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -89,4 +98,29 @@ func RandIntN(b1, b2 int32, n uint32) []int32 {
 	}
 
 	return r
+}
+
+// 返回的data索引
+func RandWeight(data IWeight, c int) []int {
+	total := int32(0)
+	temp := make(map[int][]int32, 0)
+
+	for i := 0; i < data.Len(); i++ {
+		temp[i] = []int32{total, total + data.Weight(i)}
+		total = total + data.Weight(i)
+	}
+
+	tst := 0
+	rt := make([]int, 0)
+	for len(rt) < c && tst < RAND_TEST {
+		rv := RandInt(0, total)
+		for k, v := range temp {
+			if v[0] <= rv && rv < v[1] {
+				rt = append(rt, k)
+				break
+			}
+		}
+		tst = tst + 1
+	}
+	return rt
 }
