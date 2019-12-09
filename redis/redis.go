@@ -34,7 +34,7 @@ type IRedis interface {
 }
 
 type RedisCluster struct {
-	cfg  *Config
+	cfg     *Config
 	cluster *Cluster
 	scripts map[string]*redis.Script
 }
@@ -90,6 +90,18 @@ func (self *RedisCluster) Init(cfg *Config) {
 	}
 }
 
+func (self *RedisCluster) Refresh() {
+	if self.cluster != nil {
+		self.cluster.needsRefresh()
+	}
+}
+
+func (self *RedisCluster) Close() {
+	if self.cluster != nil {
+		self.cluster.Close()
+	}
+}
+
 func (self *RedisCluster) Do(cmd string, replicas bool, args ...interface{}) (interface{}, error) {
 	if len(args) == 0 {
 		return nil, noArgsFound
@@ -131,44 +143,6 @@ func (self *RedisCluster) Do(cmd string, replicas bool, args ...interface{}) (in
 	return nil, lastErr
 }
 
-// hset肯定是主
-func (self *RedisCluster) Hset(args ...interface{}) (err error) {
-	if len(args) != 4 {
-		err = noArgsFound
-		logger.Error("RedisCluster:hset msg:%v", args)
-	}
-
-	_, err = self.Do("HSET", false,
-		args[0].(string)+":"+args[1].(string), args[2], args[3])
-	if err != nil {
-		logger.Error("RedisCluster:hset msg:%s,p:%v", err.Error(), args)
-	}
-
-	return
-}
-
-// 重用的数据直接从主获取
-func (self *RedisCluster) Hget(args ...interface{}) (ret string, err error) {
-	if len(args) != 4 {
-		err = noArgsFound
-		logger.Error("RedisCluster:hset msg:%v", args)
-	}
-
-	ret, err = redis.String(self.Do("HGET", args[0].(bool),
-		args[1].(string)+":"+args[2].(string), args[3]))
-	if err != nil && err != redis.ErrNil {
-		logger.Error("RedisCluster:hget msg:%s,p:%v", err.Error(), args)
-	}
-
-	return
-}
-
-func (self *RedisCluster) Close() {
-	if self.cluster != nil {
-		self.cluster.Close()
-	}
-}
-
 // 取唯一id
 func (self *RedisCluster) RegScript(sh string, kc int, sc string) (err error) {
 	_, ok := self.scripts[sh]
@@ -208,12 +182,6 @@ func (self *RedisCluster) Script(sh string, args ...interface{}) (ret interface{
 	return
 }
 
-func (self *RedisCluster) Refresh() {
-	if self.cluster != nil {
-		self.cluster.needsRefresh()
-	}
-}
-
 func (self *RedisCluster) Hgetall(args ...interface{}) (ret []interface{}, err error) {
 	if len(args) != 3 {
 		err = noArgsFound
@@ -224,6 +192,72 @@ func (self *RedisCluster) Hgetall(args ...interface{}) (ret []interface{}, err e
 		args[1].(string)+":"+args[2].(string)))
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:hget msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+// hset肯定是主
+func (self *RedisCluster) Hset(args ...interface{}) (err error) {
+	if len(args) != 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:hset msg:%v", args)
+		return
+	}
+
+	_, err = self.Do("HSET", false,
+		args[0].(string)+":"+args[1].(string), args[2], args[3])
+	if err != nil {
+		logger.Error("RedisCluster:hset msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+// 重用的数据直接从主获取
+func (self *RedisCluster) Hget(args ...interface{}) (ret string, err error) {
+	if len(args) != 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:hset msg:%v", args)
+		return
+	}
+
+	ret, err = redis.String(self.Do("HGET", args[0].(bool),
+		args[1].(string)+":"+args[2].(string), args[3]))
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:hget msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) Expire(args ...interface{}) (err error) {
+	if len(args) != 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:expire msg:%v", args)
+		return
+	}
+
+	_, err = self.Do("EXPIRE", args[0].(bool),
+		args[1].(string)+":"+args[2].(string), args[3])
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:expire msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) Incr(args ...interface{}) (ret int64, err error) {
+	if len(args) != 3 {
+		err = noArgsFound
+		logger.Error("RedisCluster:incr msg:%v", args)
+		return
+	}
+
+	ret, err = redis.Int64(self.Do("INCR", args[0].(bool),
+		args[1].(string)+":"+args[2].(string)))
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:incr msg:%s,p:%v", err.Error(), args)
 	}
 
 	return
