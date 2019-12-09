@@ -302,9 +302,7 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 	return nil
 }
 
-// 轮询\广播\指定
-func (self *BusClientMgr) SendData(msg *network.RawMessage,
-	sync bool, to int32, svrId int64, all bool) *network.RawMessage {
+func (self *BusClientMgr) GetBusClientById(svrId int64) []*BusClient {
 	self.RLock()
 	hs := self.buss.Values()
 	self.RUnlock()
@@ -320,6 +318,13 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 			t = append(t, clt)
 		}
 	}
+	return t
+}
+
+// 轮询\广播\指定
+func (self *BusClientMgr) SendData(msg *network.RawMessage,
+	sync bool, to int32, svrId int64, all bool) *network.RawMessage {
+	t := self.GetBusClientById(svrId)
 
 	if len(t) <= 0 {
 		logger.Error("BusMgr:SendData svrId:%v", svrId)
