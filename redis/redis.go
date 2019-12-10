@@ -31,6 +31,8 @@ type IRedis interface {
 	RegScript(sh string, kc int, sc string) (err error)                 // 注册脚本
 	Script(sh string, args ...interface{}) (ret interface{}, err error) // 执行脚本
 	Hgetall(args ...interface{}) (ret []interface{}, err error)
+	Expire(args ...interface{}) (err error)
+	Incr(args ...interface{}) (ret int64, err error)
 }
 
 type RedisCluster struct {
