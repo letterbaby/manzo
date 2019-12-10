@@ -29,7 +29,7 @@ type MySyncDBCmd struct {
 	id  interface{} // int, string
 	sql string
 
-	dbmgr *DBMgr
+	DbMgr *DBMgr
 }
 
 func (self *MySyncDBCmd) GetW() chan bool {
