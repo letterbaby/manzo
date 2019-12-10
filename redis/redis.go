@@ -236,14 +236,14 @@ func (self *RedisCluster) Hget(args ...interface{}) (ret interface{}, err error)
 }
 
 func (self *RedisCluster) Expire(args ...interface{}) (err error) {
-	if len(args) != 4 {
+	if len(args) != 3 {
 		err = noArgsFound
 		logger.Error("RedisCluster:expire msg:%v", args)
 		return
 	}
 
-	_, err = self.Do("EXPIRE", args[0].(bool),
-		args[1].(string)+":"+args[2].(string), args[3])
+	_, err = self.Do("EXPIRE", false,
+		args[0].(string)+":"+args[1].(string), args[2])
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:expire msg:%s,p:%v", err.Error(), args)
 	}
@@ -252,14 +252,14 @@ func (self *RedisCluster) Expire(args ...interface{}) (err error) {
 }
 
 func (self *RedisCluster) Incr(args ...interface{}) (ret int64, err error) {
-	if len(args) != 3 {
+	if len(args) != 2 {
 		err = noArgsFound
 		logger.Error("RedisCluster:incr msg:%v", args)
 		return
 	}
 
-	ret, err = redis.Int64(self.Do("INCR", args[0].(bool),
-		args[1].(string)+":"+args[2].(string)))
+	ret, err = redis.Int64(self.Do("INCR", false,
+		args[0].(string)+":"+args[1].(string)))
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:incr msg:%s,p:%v", err.Error(), args)
 	}
