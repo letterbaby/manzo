@@ -64,9 +64,9 @@ func (self *uiCmd) GetDBSn() int8 {
 	// int & string
 	switch self.id.(type) {
 	case int:
-		return int8(int32(self.id.(int)) % self.dbmgr.CltCount())
+		return int8(int32(self.id.(int)) % self.DbMgr.CltCount())
 	case string:
-		return int8(int32(len(self.id.(string))) % self.dbmgr.CltCount())
+		return int8(int32(len(self.id.(string))) % self.DbMgr.CltCount())
 	default:
 		return 0
 	}
@@ -97,9 +97,9 @@ func (self *loadCmd) GetDBSn() int8 {
 	// int & string
 	switch self.id.(type) {
 	case int:
-		return int8(int32(self.id.(int)) % self.dbmgr.CltCount())
+		return int8(int32(self.id.(int)) % self.DbMgr.CltCount())
 	case string:
-		return int8(int32(len(self.id.(string))) % self.dbmgr.CltCount())
+		return int8(int32(len(self.id.(string))) % self.DbMgr.CltCount())
 	default:
 		return 0
 	}
@@ -149,9 +149,9 @@ func (self *delCmd) GetDBSn() int8 {
 	// int & string
 	switch self.id.(type) {
 	case int:
-		return int8(int32(self.id.(int)) % self.dbmgr.CltCount())
+		return int8(int32(self.id.(int)) % self.DbMgr.CltCount())
 	case string:
-		return int8(int32(len(self.id.(string))) % self.dbmgr.CltCount())
+		return int8(int32(len(self.id.(string))) % self.DbMgr.CltCount())
 	default:
 		return 0
 	}
@@ -177,7 +177,7 @@ func (self *MyData) newUiCmd(sql string) *uiCmd {
 	uc := &uiCmd{}
 	uc.id = self.Id
 	uc.sql = sql
-	uc.dbmgr = self.DbMgr
+	uc.DbMgr = self.DbMgr
 	return uc
 }
 
@@ -185,7 +185,7 @@ func (self *MyData) newDelCmd(sql string) *delCmd {
 	dc := &delCmd{}
 	dc.id = self.Id
 	dc.sql = sql
-	dc.dbmgr = self.DbMgr
+	dc.DbMgr = self.DbMgr
 	return dc
 }
 
@@ -194,7 +194,7 @@ func (self *MyData) newLoadCmd(sql string) *loadCmd {
 	lc.id = self.Id
 	lc.sql = sql
 	lc.cols = self.Cols
-	lc.dbmgr = self.DbMgr
+	lc.DbMgr = self.DbMgr
 	return lc
 }
 
