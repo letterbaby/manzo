@@ -415,6 +415,7 @@ func (self *BusServer) Hand_Message(msg *network.RawMessage) *network.RawMessage
 		self.RecvRouteMsg(msg)
 	} else if msgdata.Code == Cmd_REG_SVR {
 		self.RegClt(msgdata)
+	} else if msgdata.Code == Cmd_PING {
 	} else {
 		logger.Warning("BusServer:Hand_Message code:%v", msgdata.Code)
 	}
