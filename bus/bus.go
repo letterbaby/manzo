@@ -47,8 +47,8 @@ type BusClient struct {
 	network.TcpClient
 
 	Id     int64
-	seqId  int32
-	caller map[int32]chan *network.RawMessage
+	seqId  uint32
+	caller map[uint32]chan *network.RawMessage
 
 	mgr *BusClientMgr
 }
@@ -81,7 +81,7 @@ func (self *BusClient) init(cfg *network.Config) bool {
 	}
 
 	self.Authed = false
-	self.caller = make(map[int32]chan *network.RawMessage, 0)
+	self.caller = make(map[uint32]chan *network.RawMessage, 0)
 
 	self.OnData = self.OnBusData
 	self.OnConnect = func() {
@@ -118,22 +118,37 @@ func (self *BusClient) GetAuthed() bool {
 	return self.Authed
 }
 
+func (self *BusClient) RecvRouteMsg(msg *network.RawMessage) {
+	rmsg := NewRouteRawMessageIn(msg, self.mgr.cfg.Parser)
+
+	if msg.Seq != 0 {
+		self.callerDone(msg.Seq, rmsg)
+		return
+	}
+
+	self.mgr.RecvRouteMsg(rmsg)
+}
+
 func (self *BusClient) OnBusData(msg *network.RawMessage) *network.RawMessage {
 	msgdata := msg.MsgData.(*CommonMessage)
 
-	if msgdata.SeqId == 0 {
-		return self.mgr.OnBusData(msg)
+	if msgdata.Code == Cmd_ROUTE_MSG {
+		self.RecvRouteMsg(msg)
 	} else {
-		self.callerDone(msgdata.SeqId, msg)
+		if msg.Seq == 0 {
+			return self.mgr.OnBusData(msg)
+		} else {
+			self.callerDone(msg.Seq, msg)
+		}
 	}
 	return nil
 }
 
-func (self *BusClient) newCaller() (int32, chan *network.RawMessage) {
+func (self *BusClient) newCaller() (uint32, chan *network.RawMessage) {
 	self.Lock()
 	defer self.Unlock()
 
-	if self.seqId >= math.MaxInt32 {
+	if self.seqId >= math.MaxUint32 {
 		self.seqId = 0
 	}
 
@@ -143,7 +158,7 @@ func (self *BusClient) newCaller() (int32, chan *network.RawMessage) {
 	return self.seqId, w
 }
 
-func (self *BusClient) callerDone(seqId int32, msg *network.RawMessage) {
+func (self *BusClient) callerDone(seqId uint32, msg *network.RawMessage) {
 	self.Lock()
 	defer self.Unlock()
 
@@ -161,15 +176,14 @@ func (self *BusClient) callerDone(seqId int32, msg *network.RawMessage) {
 }
 
 func (self *BusClient) SendData(msg *network.RawMessage, sync bool, to int32) *network.RawMessage {
-	var id int32
+	var id uint32
 	var w chan *network.RawMessage
 
 	if sync {
 		id, w = self.newCaller()
 
 		//!!!!
-		msgdata := msg.MsgData.(*CommonMessage)
-		msgdata.SeqId = id
+		msg.Seq = id
 	}
 
 	// 发送数据
@@ -287,9 +301,7 @@ func (self *BusClientMgr) busOk(id int64) {
 func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage {
 	msgdata := msg.MsgData.(*CommonMessage)
 
-	if msgdata.Code == Cmd_ROUTE_MSG {
-		self.RecvRouteMsg(msgdata)
-	} else if msgdata.Code == Cmd_REG_SVR {
+	if msgdata.Code == Cmd_REG_SVR {
 		self.busOk(msgdata.SvrInfo.DestId)
 	} else if msgdata.Code == Cmd_NEW_SVR {
 		// CHECK wfunc
@@ -342,15 +354,9 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	return rt
 }
 
-func (self *BusClientMgr) RecvRouteMsg(msgdata *CommonMessage) {
-	req := msgdata.RouteInfo
-
+func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
 	if self.OnData != nil {
-		rmsg := NewRouteRawMessageIn(req.Msg, self.cfg.Parser)
-
-		if rmsg != nil {
-			self.OnData(rmsg)
-		}
+		self.OnData(msg)
 	}
 }
 
@@ -406,17 +412,12 @@ func (self *BusServer) Hand_Message(msg *network.RawMessage) *network.RawMessage
 	logger.Debug("BusServer:message conn:%v,msg:%v", self.Conn, msg)
 
 	if msgdata.Code == Cmd_ROUTE_MSG {
-		if self.RecvRouteMsg(msg) {
-			return nil
-		}
-		self.Mgr.RecvRouteMsg(msgdata)
+		self.RecvRouteMsg(msg)
 	} else if msgdata.Code == Cmd_REG_SVR {
 		self.RegClt(msgdata)
 	} else {
 		logger.Warning("BusServer:Hand_Message code:%v", msgdata.Code)
 	}
-	// 让RawMessage回收
-	msg.MsgData = nil
 	return nil
 }
 
@@ -443,7 +444,7 @@ func (self *BusServer) SendRouteMsg(msg *network.RawMessage) {
 	}
 }
 
-func (self *BusServer) RecvRouteMsg(msg *network.RawMessage) bool {
+func (self *BusServer) RecvRouteMsg(msg *network.RawMessage) {
 	msgdata := msg.MsgData.(*CommonMessage)
 	req := msgdata.RouteInfo
 
@@ -451,18 +452,16 @@ func (self *BusServer) RecvRouteMsg(msg *network.RawMessage) bool {
 		if GetServerLogicId(req.DestSvr) == 0 ||
 			GetServerLogicId(req.DestSvr) == GetServerLogicId(self.Mgr.cfg.SvrId) {
 			if self.OnData != nil {
-				rmsg := NewRouteRawMessageIn(req.Msg, self.Mgr.cfg.Parser)
+				rmsg := NewRouteRawMessageIn(msg, self.Mgr.cfg.Parser)
 				if rmsg != nil {
 					self.OnData(rmsg)
-					return true
 				}
 			}
 		}
-		// 让RawMessage回收
-		msg.MsgData = nil
-		return true
+		return
 	}
-	return false
+
+	self.Mgr.RecvRouteMsg(msg)
 }
 
 //-------------------------------------------------------------------------
@@ -546,7 +545,14 @@ func (self *BusServerMgr) GetServersById(id int64) []*BusServer {
 }
 
 //是不是给自己
-func (self *BusServerMgr) RecvRouteMsg(msgdata *CommonMessage) {
+func (self *BusServerMgr) RecvRouteMsg(msg *network.RawMessage) {
+	msgdata := msg.MsgData.(*CommonMessage)
+
+	// !!!
+	if msg.Seq != 0 {
+		logger.Error("BusServerMgr:RouteMsg id:%v", msgdata.Code)
+		return
+	}
 	req := msgdata.RouteInfo
 
 	svrs := self.GetServersById(req.DestSvr)
@@ -556,8 +562,7 @@ func (self *BusServerMgr) RecvRouteMsg(msgdata *CommonMessage) {
 		return
 	}
 
-	rmsg := NewBusRawMessage(msgdata)
-	buf, err := self.parser.Serialize(rmsg)
+	buf, err := self.parser.Serialize(msg)
 	if err != nil {
 		logger.Error("BusServerMgr:RouteMsg id:%v", req.DestSvr)
 		return

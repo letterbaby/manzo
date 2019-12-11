@@ -48,7 +48,6 @@ message CommonMessage
 {
 	Cmd code = 1;
 	ErrorCode errorCode = 2;
-	int32 seqId = 3; // rpc用
 
 	Ping ping=10;
 	RegSvrInfo svrInfo = 11;// BUS注册服务器
