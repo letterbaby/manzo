@@ -1,9 +1,9 @@
 package bus
 
 import (
-	"strings"
 	"strconv"
-	
+	"strings"
+
 	"github.com/letterbaby/manzo/buffer"
 	"github.com/letterbaby/manzo/logger"
 	"github.com/letterbaby/manzo/network"
@@ -79,15 +79,19 @@ func NewBusRawMessage(msg *CommonMessage) *network.RawMessage {
 	return rmsg
 }
 
-func NewRouteRawMessageIn(msg []byte, parser network.IMessage) *network.RawMessage {
-	if len(msg) < 4 {
-		logger.Error("NewRouteRawMessageIn sz:%v", len(msg))
+func NewRouteRawMessageIn(msg *network.RawMessage, parser network.IMessage) *network.RawMessage {
+	msgdata := msg.MsgData.(*CommonMessage)
+
+	d := msgdata.RouteInfo.Msg
+
+	if len(d) < 4 {
+		logger.Error("NewRouteRawMessageIn sz:%v", len(d))
 		return nil
 	}
 
 	// 大端!!!!
-	sz := uint32(msg[0])<<24 | uint32(msg[1])<<16 | uint32(msg[2])<<8 | uint32(msg[3])
-	if len(msg) < int(sz+4) {
+	sz := uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
+	if len(d) < int(sz+4) {
 		logger.Error("NewRouteRawMessageIn sz:%v", sz)
 		return nil
 	}
@@ -98,13 +102,15 @@ func NewRouteRawMessageIn(msg []byte, parser network.IMessage) *network.RawMessa
 	}()
 
 	buf.Data = buf.Data[0:sz]
-	copy(buf.Data, msg[4:])
+	copy(buf.Data, d[4:])
 
 	rmsg, err := parser.Deserialize(buf)
 	if err != nil {
 		logger.Error("NewRouteRawMessageIn sz:%v,info:%v", sz, err)
 		return nil
 	}
+
+	rmsg.Seq = msg.Seq
 	return rmsg
 }
 
@@ -130,5 +136,7 @@ func NewRouteRawMessageOut(destId int64, destSvr int64,
 	copy(r.RouteInfo.Msg, buf.Data)
 
 	rmsg := NewBusRawMessage(r)
+
+	rmsg.Seq = msg.Seq
 	return rmsg
 }
