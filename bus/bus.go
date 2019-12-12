@@ -553,12 +553,6 @@ func (self *BusServerMgr) GetServersById(id int64) []*BusServer {
 //是不是给自己
 func (self *BusServerMgr) RecvRouteMsg(msg *network.RawMessage) {
 	msgdata := msg.MsgData.(*CommonMessage)
-
-	// !!!
-	if msg.Seq != 0 {
-		logger.Error("BusServerMgr:RouteMsg id:%v", msgdata.Code)
-		return
-	}
 	req := msgdata.RouteInfo
 
 	self.SendData(req.DestSvr, msg, 1)
@@ -579,6 +573,12 @@ func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
 
 func (self *BusServerMgr) SendData(svrId int64,
 	msg *network.RawMessage, to int32) {
+
+	// !!!
+	if msg.Seq != 0 {
+		logger.Error("BusServerMgr:SendData id:%v", msg)
+		return
+	}
 
 	svrs := self.GetServersById(svrId)
 
