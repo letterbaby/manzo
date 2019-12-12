@@ -70,6 +70,11 @@ func MakeWorldFuncId(wid int64, fid int64) int64 {
 	return int64(wid<<16 | fid<<8)
 }
 
+func GetWorldFuncId(id int64) int64 {
+	wid, fid, _ := GetServerId(id)
+	return int64(wid<<16 | fid<<8)
+}
+
 func IsSameWorldFuncId(sid int64, did int64) bool {
 	sw, sf, _ := GetServerId(sid)
 	dw, df, _ := GetServerId(did)
