@@ -256,7 +256,7 @@ func (self *BusClientMgr) NewBusClient(sinfo *NewSvrInfo) {
 }
 
 func (self *BusClientMgr) RegBus(clt *BusClient) {
-	logger.Info("BusMgr:RegBus id:%v", clt.Id)
+	logger.Info("BusClientMgr:RegBus id:%v", clt.Id)
 
 	self.Lock()
 	self.buss.Add(clt.Id, clt)
@@ -274,7 +274,7 @@ func (self *BusClientMgr) RegBus(clt *BusClient) {
 }
 
 func (self *BusClientMgr) UnRegBus(clt *BusClient) {
-	logger.Info("BusMgr:UnRegBus id:%v", clt.Id)
+	logger.Info("BusClientMgr:UnRegBus id:%v", clt.Id)
 
 	self.Lock()
 	defer self.Unlock()
@@ -288,7 +288,7 @@ func (self *BusClientMgr) busOk(id int64) {
 	self.Unlock()
 
 	if !ok {
-		logger.Error("BusMgr:BusOk id:%v", id)
+		logger.Error("BusClientMgr:BusOk id:%v", id)
 		return
 	}
 	v.(*BusClient).SetAuthed()
@@ -339,7 +339,7 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	t := self.GetBusClientById(svrId)
 
 	if len(t) <= 0 {
-		logger.Error("BusMgr:SendData svrId:%v", svrId)
+		logger.Error("BusClientMgr:SendData svrId:%v", svrId)
 		return nil
 	}
 
