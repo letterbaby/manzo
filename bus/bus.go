@@ -346,7 +346,12 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	var rt *network.RawMessage
 	if all {
 		for _, v := range t {
-			rt = v.SendData(msg, sync, to)
+			rmsg := msg
+			if sync {
+				// !!!sync
+				rmsg = NewBusRawMessage(msg.MsgData.(*CommonMessage))
+			}
+			v.SendData(rmsg, sync, to)
 		}
 	} else {
 		rt = t[rand.RandInt(0, int32(len(t)-1))].SendData(msg, sync, to)
@@ -556,16 +561,35 @@ func (self *BusServerMgr) RecvRouteMsg(msg *network.RawMessage) {
 	}
 	req := msgdata.RouteInfo
 
-	svrs := self.GetServersById(req.DestSvr)
+	self.SendData(req.DestSvr, msg, 1)
+}
+
+func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
+	msg := &CommonMessage{}
+	msg.Code = Cmd_NEW_SVR
+	msg.NewSvrInfo = &NewSvrInfo{}
+	msg.NewSvrInfo.DestId = id
+	msg.NewSvrInfo.Ip = ip
+	msg.NewSvrInfo.Port = port
+
+	rmsg := NewBusRawMessage(msg)
+
+	self.SendData(0, rmsg, 1)
+}
+
+func (self *BusServerMgr) SendData(svrId int64,
+	msg *network.RawMessage, to int32) {
+
+	svrs := self.GetServersById(svrId)
 
 	if len(svrs) <= 0 {
-		logger.Error("BusServerMgr:RouteMsg id:%v", req.DestSvr)
+		logger.Error("BusServerMgr:SendData id:%v", svrId)
 		return
 	}
 
 	buf, err := self.parser.Serialize(msg)
 	if err != nil {
-		logger.Error("BusServerMgr:RouteMsg id:%v", req.DestSvr)
+		logger.Error("BusServerMgr:SendData id:%v", err)
 		return
 	}
 
@@ -577,31 +601,11 @@ func (self *BusServerMgr) RecvRouteMsg(msg *network.RawMessage) {
 	buf.Free()
 }
 
-func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
-	svrs := self.GetServersById(0)
-	if len(svrs) <= 0 {
-		logger.Error("BusServerMgr:NewServer id:%v", id)
-		return
-	}
+func (self *BusServerMgr) SendRouteMsg(destId int64, destSvr int64,
+	msg *network.RawMessage, to int32, svrId int64) {
 
-	msg := &CommonMessage{}
-	msg.Code = Cmd_NEW_SVR
-	msg.NewSvrInfo = &NewSvrInfo{}
-	msg.NewSvrInfo.DestId = id
-	msg.NewSvrInfo.Ip = ip
-	msg.NewSvrInfo.Port = port
-
-	rmsg := NewBusRawMessage(msg)
-	buf, err := self.parser.Serialize(rmsg)
-	if err != nil {
-		logger.Error("BusServerMgr:NewServer id:%v", id)
-		return
+	rmsg := NewRouteRawMessageOut(destId, destSvr, msg, self.cfg.Parser)
+	if rmsg != nil {
+		self.SendData(svrId, rmsg, 1)
 	}
-
-	for _, v := range svrs {
-		//增加引用次数
-		buf.Ref()
-		v.SendMsg(buf, 1)
-	}
-	buf.Free()
 }
