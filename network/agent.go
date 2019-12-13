@@ -105,6 +105,7 @@ func (self *Agent) IsConnected() bool {
 	return atomic.LoadInt32(&self.status) > 0
 }
 
+// 外部调用
 func (self *Agent) Close() bool {
 	select {
 	case self.disconn <- true:
@@ -114,6 +115,11 @@ func (self *Agent) Close() bool {
 	}
 	//close(self.disconn)
 	return false
+}
+
+// 内部调用
+func (self *Agent) SetCloseFlag() {
+	self.flag |= SESS_KICKED_OUT
 }
 
 func (self *Agent) Start(conn net.Conn) {

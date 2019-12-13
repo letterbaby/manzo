@@ -12,6 +12,8 @@ import (
 	"github.com/letterbaby/manzo/utils"
 )
 
+type BusDataCall func(msg *network.RawMessage) *network.RawMessage
+
 type Config struct {
 	SvrId int64 // 服务器ID
 
@@ -19,7 +21,7 @@ type Config struct {
 
 	BusCfg []*NewSvrInfo
 
-	OnData func(msg *network.RawMessage) *network.RawMessage
+	OnData BusDataCall
 }
 
 /*
@@ -216,7 +218,7 @@ type BusClientMgr struct {
 	cfg *Config
 
 	OnNewBus func(id int64)
-	OnData   func(msg *network.RawMessage) *network.RawMessage
+	OnData   BusDataCall
 
 	parser network.IMessage
 }
@@ -389,7 +391,7 @@ type BusServer struct {
 	Mgr *BusServerMgr
 
 	OnDisconnect func()
-	OnData       func(msg *network.RawMessage) *network.RawMessage
+	OnData       BusDataCall
 }
 
 func (self *BusServer) Initx(cfg *network.Config, mgr *BusServerMgr) {
