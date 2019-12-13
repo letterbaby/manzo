@@ -217,8 +217,8 @@ type BusClientMgr struct {
 
 	cfg *Config
 
-	OnNewBus func(id int64)
-	OnData   BusDataCall
+	OnBusStation func(id int64, flag int64)
+	OnData       BusDataCall
 
 	parser network.IMessage
 }
@@ -279,9 +279,12 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 	logger.Info("BusClientMgr:UnRegBus id:%v", clt.Id)
 
 	self.Lock()
-	defer self.Unlock()
-
 	self.buss.Del(clt.Id)
+	self.Unlock()
+
+	if self.OnBusStation != nil {
+		self.OnBusStation(clt.Id, 0)
+	}
 }
 
 func (self *BusClientMgr) busOk(id int64) {
@@ -295,8 +298,8 @@ func (self *BusClientMgr) busOk(id int64) {
 	}
 	v.(*BusClient).SetAuthed()
 
-	if self.OnNewBus != nil {
-		self.OnNewBus(id)
+	if self.OnBusStation != nil {
+		self.OnBusStation(id, 1)
 	}
 }
 
