@@ -375,10 +375,10 @@ func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
 // destsvr到wfuncId不是要下车还是继续
 // sync是不是rpc
 // to发送超时
-func (self *BusClientMgr) SendRouteMsg(destId int64, destSvr int64,
+func (self *BusClientMgr) SendRouteMsg(destSvr int64, destAll bool,
 	msg *network.RawMessage, sync bool, to int32, svrId int64, all bool) *network.RawMessage {
 
-	rmsg := NewRouteRawMessageOut(destId, destSvr, msg, self.cfg.Parser)
+	rmsg := NewRouteRawMessageOut(destSvr, destAll, msg, self.cfg.Parser)
 	if rmsg != nil {
 		return self.SendData(rmsg, sync, to, svrId, all)
 	}
@@ -449,7 +449,7 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 }
 
 func (self *BusServer) SendRouteMsg(msg *network.RawMessage) {
-	rmsg := NewRouteRawMessageOut(-1, 0, msg, self.Mgr.parser)
+	rmsg := NewRouteRawMessageOut(0, false, msg, self.Mgr.parser)
 	if rmsg != nil {
 		self.SendMsg(rmsg, 1)
 	}
@@ -560,7 +560,7 @@ func (self *BusServerMgr) RecvRouteMsg(msg *network.RawMessage) {
 	msgdata := msg.MsgData.(*CommonMessage)
 	req := msgdata.RouteInfo
 
-	self.SendData(req.DestSvr, msg, 1)
+	self.SendData(req.DestSvr, req.DestAll, msg, 1)
 }
 
 func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
@@ -573,10 +573,10 @@ func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
 
 	rmsg := NewBusRawMessage(msg)
 
-	self.SendData(0, rmsg, 1)
+	self.SendData(0, true, rmsg, 1)
 }
 
-func (self *BusServerMgr) SendData(svrId int64,
+func (self *BusServerMgr) SendData(svrId int64, all bool,
 	msg *network.RawMessage, to int32) {
 
 	// !!!
@@ -598,19 +598,25 @@ func (self *BusServerMgr) SendData(svrId int64,
 		return
 	}
 
-	for _, v := range svrs {
-		//增加引用次数
+	if all {
+		for _, v := range svrs {
+			//增加引用次数
+			buf.Ref()
+			v.SendMsg(buf, 1)
+		}
+	} else {
 		buf.Ref()
-		v.SendMsg(buf, 1)
+		svrs[rand.RandInt(0, int32(len(svrs)-1))].SendMsg(buf, 1)
 	}
+
 	buf.Free()
 }
 
-func (self *BusServerMgr) SendRouteMsg(destId int64, destSvr int64,
-	msg *network.RawMessage, to int32, svrId int64) {
+func (self *BusServerMgr) SendRouteMsg(destSvr int64, destAll bool,
+	msg *network.RawMessage, to int32, svrId int64, all bool) {
 
-	rmsg := NewRouteRawMessageOut(destId, destSvr, msg, self.cfg.Parser)
+	rmsg := NewRouteRawMessageOut(destSvr, destAll, msg, self.cfg.Parser)
 	if rmsg != nil {
-		self.SendData(svrId, rmsg, 1)
+		self.SendData(svrId, all, rmsg, 1)
 	}
 }

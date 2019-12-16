@@ -37,9 +37,8 @@ message NewSvrInfo
 
 message RouteInfo
 {
-	int64 destId  =1; // 目标id, -1,全部
-    int64 destSvr  = 2; //世界ID_功能ID_逻辑ID, 可以用*
-	int64 srcSvr = 3;// A->B->C
+    int64 destSvr  = 1; //世界ID_功能ID_逻辑ID, 可以用*
+	bool destAll = 2; // 是不是all
 	
 	bytes msg= 4; //透传,标准的网络协议结构
 }

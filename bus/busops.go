@@ -123,7 +123,7 @@ func NewRouteRawMessageIn(msg *network.RawMessage, parser network.IMessage) *net
 	return rmsg
 }
 
-func NewRouteRawMessageOut(destId int64, destSvr int64,
+func NewRouteRawMessageOut(destSvr int64, destAll bool,
 	msg *network.RawMessage, parser network.IMessage) *network.RawMessage {
 	buf, err := parser.Serialize(msg)
 	if err != nil {
@@ -138,7 +138,7 @@ func NewRouteRawMessageOut(destId int64, destSvr int64,
 	r.Code = Cmd_ROUTE_MSG
 
 	r.RouteInfo = &RouteInfo{}
-	r.RouteInfo.DestId = destId
+	r.RouteInfo.DestAll = destAll
 	r.RouteInfo.DestSvr = destSvr
 	r.RouteInfo.Msg = make([]byte, len(buf.Data))
 

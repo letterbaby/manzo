@@ -23,8 +23,10 @@ type Agent struct {
 	cfg  *Config
 	Conn IConn // 当前会话
 
-	in  chan *RawMessage
+	in  chan *RawMessage // 收到客户端的消息
 	out chan interface{} // 返回给客户端的异步消息
+
+	inner chan interface{} // 内部消息队列
 
 	die               chan struct{} // 会话关闭信号
 	flag              int32         // 会话标记
@@ -33,9 +35,10 @@ type Agent struct {
 	lastPacketTime    time.Time     // 上一个包到达时间
 	packetCountOneMin int           // 每分钟的包统计，用于RPM判断
 
-	OnStart   func()
-	OnClose   func()
-	OnMessage func(msg *RawMessage) *RawMessage
+	OnStart    func()
+	OnClose    func()
+	OnMessage  func(msg *RawMessage) *RawMessage
+	OnInnerMsg func(msg interface{})
 
 	Authed bool // 认证过了
 
@@ -73,6 +76,7 @@ func (self *Agent) Init(cfg *Config) {
 		logger.Warning("Agent:init AsyncMQ <= 0 defalut 10240")
 	}
 
+	self.inner = make(chan interface{}, 1024)
 	self.out = make(chan interface{}, self.cfg.AsyncMQ)
 	self.disconn = make(chan bool, 1)
 }
@@ -89,15 +93,15 @@ func (self *Agent) SendMsg(msg interface{}, to int32) {
 	}
 }
 
-func (self *Agent) RecvMsg(msg *RawMessage, to int32) {
+func (self *Agent) InnerMsg(msg interface{}, to int32) {
 	if to <= 0 {
 		to = 1
 	}
 
 	select {
-	case self.in <- msg:
+	case self.inner <- msg:
 	case <-time.After(time.Second * time.Duration(to)):
-		logger.Warning("Agent:RecvMsg conn:%v,msg:%v", self.Conn, msg)
+		logger.Warning("Agent:InnerMsg conn:%v,msg:%v", self.Conn, msg)
 	}
 }
 
@@ -186,10 +190,17 @@ func (self *Agent) runAgent() {
 			if !ok {
 				return
 			}
-			rt := self.route(msg)
+			rt := self.handin(msg)
 			if rt != nil {
 				self.SendMsg(rt, 1)
 			}
+
+		case msg, ok := <-self.inner:
+			if !ok {
+				return
+			}
+
+			self.handinner(msg)
 		case <-tc.C:
 			// 不认证的连接都干了,调试阶段不开启
 			if !self.Authed {
@@ -211,12 +222,12 @@ func (self *Agent) runAgent() {
 	}
 }
 
-func (self *Agent) route(msg *RawMessage) *RawMessage {
+func (self *Agent) handin(msg *RawMessage) *RawMessage {
 	self.packetCountOneMin++
 	self.packetTime = time.Now()
 	self.lastPacketTime = self.packetTime
 
-	logger.Debug("Agent:route conn:%v,msg:%v", self.Conn, msg)
+	logger.Debug("Agent:handin conn:%v,msg:%v", self.Conn, msg)
 
 	now := time.Now()
 
@@ -226,9 +237,23 @@ func (self *Agent) route(msg *RawMessage) *RawMessage {
 	}
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {
-		logger.Warning("Agent:route conn:%v,msg:%v,time:%v", self.Conn, msg, tt)
+		logger.Warning("Agent:handin conn:%v,msg:%v,time:%v", self.Conn, msg, tt)
 	}
 	return outmsg
+}
+
+func (self *Agent) handinner(msg interface{}) {
+	logger.Debug("Agent:handinner conn:%v,msg:%v", self.Conn, msg)
+
+	now := time.Now()
+
+	if self.OnInnerMsg != nil {
+		self.OnInnerMsg(msg)
+	}
+	tt := time.Now().Sub(now)
+	if tt > (time.Millisecond * 50) {
+		logger.Warning("Agent:handinner conn:%v,msg:%v,time:%v", self.Conn, msg, tt)
+	}
 }
 
 func (self *Agent) timerCheck() {
