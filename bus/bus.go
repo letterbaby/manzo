@@ -540,7 +540,7 @@ func (self *BusServerMgr) GetServersById(id int64) []*BusServer {
 
 	lid := GetServerLogicId(id)
 	if lid != 0 {
-		v, ok := self.servers[lid]
+		v, ok := self.servers[id]
 		if ok {
 			svrs = append(svrs, v)
 		}
