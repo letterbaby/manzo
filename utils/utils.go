@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/letterbaby/manzo/logger"
 )
@@ -97,4 +98,13 @@ func SplitToStringArray(s string, sep string) ([]string, error) {
 		ret = append(ret, v)
 	}
 	return ret, nil
+}
+
+func Memset(s unsafe.Pointer, c byte, n uintptr) {
+	ptr := uintptr(s)
+	var i uintptr
+	for i = 0; i < n; i++ {
+		pByte := (*byte)(unsafe.Pointer(ptr + i))
+		*pByte = c
+	}
 }

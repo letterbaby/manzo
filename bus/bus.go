@@ -13,6 +13,7 @@ import (
 )
 
 type BusDataCall func(msg *network.RawMessage) *network.RawMessage
+type BusMountCall func(id int64, flag int64)
 
 type Config struct {
 	SvrId int64 // 服务器ID
@@ -21,7 +22,8 @@ type Config struct {
 
 	BusCfg []*NewSvrInfo
 
-	OnData BusDataCall
+	OnData   BusDataCall
+	OnNewBus BusMountCall
 }
 
 /*
@@ -217,18 +219,11 @@ type BusClientMgr struct {
 
 	cfg *Config
 
-	OnBusStation func(id int64, flag int64)
-	OnData       BusDataCall
-
 	parser network.IMessage
 }
 
 func NewBusClientMgr(cfg *Config) *BusClientMgr {
 	mgr := &BusClientMgr{}
-
-	// 配置
-	mgr.OnData = cfg.OnData
-
 	mgr.init(cfg)
 	return mgr
 }
@@ -282,8 +277,8 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 	self.buss.Del(clt.Id)
 	self.Unlock()
 
-	if self.OnBusStation != nil {
-		self.OnBusStation(clt.Id, 0)
+	if self.cfg.OnNewBus != nil {
+		self.cfg.OnNewBus(clt.Id, 0)
 	}
 }
 
@@ -298,8 +293,8 @@ func (self *BusClientMgr) busOk(id int64) {
 	}
 	v.(*BusClient).SetAuthed()
 
-	if self.OnBusStation != nil {
-		self.OnBusStation(id, 1)
+	if self.cfg.OnNewBus != nil {
+		self.cfg.OnNewBus(id, 1)
 	}
 }
 
@@ -365,8 +360,8 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 }
 
 func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
-	if self.OnData != nil {
-		self.OnData(msg)
+	if self.cfg.OnData != nil {
+		self.cfg.OnData(msg)
 	}
 }
 
