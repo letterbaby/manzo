@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+{{$t := .Tbl}}
+package {{$t.Name}}tbl;
+
+message tbl {
+{{- range $f := .Fields}}
+	{{- if protor $f.Protorw}}
+	optional {{$f.Protot}} {{$f.Name}} = {{$f.Id}};
+	{{- else}}
+	//optional {{$f.Protot}} {{$f.Name}} = {{$f.Id}};
+	{{- end}}
+{{- end}}
+}

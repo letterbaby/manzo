@@ -1,0 +1,18 @@
+-- tbltool工具生成
+
+{{$t := .Tbl}}
+USE {{$t.DB}};
+-- MyISAM,InnoDB
+
+CREATE TABLE IF NOT EXISTS `{{$t.Name}}` (
+`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+) 
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8 
+COMMENT='{{$t.Des}}'
+AUTO_INCREMENT=0;
+
+-- 字段
+{{- range $f := .Fields}}
+ALTER TABLE `{{$t.Name}}` ADD COLUMN `{{$f.Name}}` {{ftype $f}} COMMENT '{{$f.Des}}';
+{{- end}}
