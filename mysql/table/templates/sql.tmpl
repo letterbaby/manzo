@@ -16,3 +16,9 @@ AUTO_INCREMENT=0;
 {{- range $f := .Fields}}
 ALTER TABLE `{{$t.Name}}` ADD COLUMN `{{$f.Name}}` {{ftype $f}} COMMENT '{{$f.Des}}';
 {{- end}}
+
+{{- range $f := .Fields}}
+{{- if isindex $f}}
+ALTER TABLE `{{$t.Name}}` ADD INDEX idx_{{$f.Name}}(`{{$f.Name}}`)
+{{- end}}
+{{- end}}
