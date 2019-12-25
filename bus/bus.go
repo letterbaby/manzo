@@ -13,7 +13,8 @@ import (
 )
 
 type BusDataCall func(msg *network.RawMessage) *network.RawMessage
-type BusMountCall func(id int64, flag int64)
+type BusRegCall func(id int64, flag int64)
+type BusNewCall func(id int64) bool
 
 type Config struct {
 	SvrId int64 // 服务器ID
@@ -23,7 +24,8 @@ type Config struct {
 	BusCfg []*NewSvrInfo
 
 	OnData   BusDataCall
-	OnNewBus BusMountCall
+	OnNewBus BusNewCall // 新bus是否可以接入
+	OnBusReg BusRegCall
 }
 
 /*
@@ -242,6 +244,10 @@ func (self *BusClientMgr) init(cfg *Config) {
 }
 
 func (self *BusClientMgr) NewBusClient(sinfo *NewSvrInfo) {
+	if !self.cfg.OnNewBus(sinfo.DestId) {
+		return
+	}
+
 	self.RLock()
 	_, ok, _ := self.buss.Get(sinfo.DestId)
 	self.RUnlock()
@@ -277,12 +283,12 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 	self.buss.Del(clt.Id)
 	self.Unlock()
 
-	if self.cfg.OnNewBus != nil {
-		self.cfg.OnNewBus(clt.Id, 0)
+	if self.cfg.OnBusReg != nil {
+		self.cfg.OnBusReg(clt.Id, 0)
 	}
 }
 
-func (self *BusClientMgr) busOk(id int64) {
+func (self *BusClientMgr) regBusOk(id int64) {
 	self.Lock()
 	v, ok, _ := self.buss.Get(id)
 	self.Unlock()
@@ -293,8 +299,8 @@ func (self *BusClientMgr) busOk(id int64) {
 	}
 	v.(*BusClient).SetAuthed()
 
-	if self.cfg.OnNewBus != nil {
-		self.cfg.OnNewBus(id, 1)
+	if self.cfg.OnBusReg != nil {
+		self.cfg.OnBusReg(id, 1)
 	}
 }
 
@@ -302,7 +308,7 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 	msgdata := msg.MsgData.(*CommonMessage)
 
 	if msgdata.Code == Cmd_REG_SVR {
-		self.busOk(msgdata.SvrInfo.DestId)
+		self.regBusOk(msgdata.SvrInfo.DestId)
 	} else if msgdata.Code == Cmd_NEW_SVR {
 		// CHECK wfunc
 		self.NewBusClient(msgdata.NewSvrInfo)
