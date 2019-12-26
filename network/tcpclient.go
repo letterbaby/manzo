@@ -2,6 +2,7 @@ package network
 
 import (
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/letterbaby/manzo/logger"
@@ -12,7 +13,7 @@ type TcpClient struct {
 	Agent
 
 	addr          *net.TCPAddr
-	autoReconnect bool //自动重连
+	autoReconnect int32 //自动重连
 
 	OnPing       func()
 	OnConnect    func()
@@ -55,7 +56,9 @@ func (self *TcpClient) Initx(cfg *Config) *net.TCPAddr {
 }
 
 func (self *TcpClient) Connect(reconnect bool) {
-	self.autoReconnect = reconnect
+	if reconnect {
+		atomic.AddInt32(&self.autoReconnect, 1)
+	}
 
 	self.reconnect()
 }
@@ -63,6 +66,7 @@ func (self *TcpClient) Connect(reconnect bool) {
 func (self *TcpClient) reconnect() {
 
 RETRY:
+
 	// 等待当前连接全部释放
 	for self.IsConnected() {
 		time.Sleep(2 * time.Second)
@@ -72,6 +76,10 @@ RETRY:
 	conn, err := net.DialTCP("tcp", nil, self.addr)
 	if err != nil {
 		time.Sleep(5 * time.Second)
+
+		if atomic.LoadInt32(&self.autoReconnect) <= 0 {
+			return
+		}
 		logger.Warning("TcpClient:reconnect tcp:%v,%v", self.Conn, self.cfg.ServerAddress)
 		goto RETRY
 	}
@@ -107,7 +115,7 @@ func (self *TcpClient) Hand_Close() {
 	}
 
 	// 去重连
-	if self.autoReconnect {
+	if atomic.LoadInt32(&self.autoReconnect) > 0 {
 		logger.Warning("TcpClient:reconnect tcp:%v,%v", self.Conn, self.cfg.ServerAddress)
 		go func() {
 			defer utils.CatchPanic()
@@ -146,6 +154,6 @@ func (self *TcpClient) ping() {
 func (self *TcpClient) Disconnect() {
 	logger.Info("TcpClient:close tcp:%v", self.Conn)
 	// 停止重连
-	self.autoReconnect = false
+	atomic.AddInt32(&self.autoReconnect, -1)
 	self.Close()
 }

@@ -102,19 +102,14 @@ func (self *BusClient) init(cfg *network.Config) bool {
 		self.SendMsg(pingMsg, 1)
 	}
 
-	go func() {
-		defer utils.CatchPanic()
-
-		self.Connect(true)
-	}()
 	return true
 }
 
-func (self *BusClient) SetAuthed() {
+func (self *BusClient) SetAuthed(a bool) {
 	self.Lock()
 	defer self.Unlock()
 
-	self.Authed = true
+	self.Authed = a
 }
 
 func (self *BusClient) GetAuthed() bool {
@@ -260,14 +255,37 @@ func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
 	clt := newBusClient(sinfo, self)
 
 	self.buss.Add(clt.Id, clt)
+
+	// 异步链接
+	go func() {
+		defer utils.CatchPanic()
+		clt.Connect(true)
+	}()
+}
+
+func (self *BusClientMgr) DelBus(sinfo *DelSvrInfo) {
+	self.Lock()
+	defer self.Unlock()
+	v, ok, _ := self.buss.Get(sinfo.DestId)
+	if !ok {
+		logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
+		return
+	}
+
+	self.buss.Del(sinfo.DestId)
+
+	v.(*BusClient).Disconnect()
 }
 
 func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 	logger.Info("BusClientMgr:UnRegBus id:%v", clt.Id)
 
-	self.Lock()
-	self.buss.Del(clt.Id)
-	self.Unlock()
+	self.RLock()
+	_, ok, _ := self.buss.Get(clt.Id)
+	self.RUnlock()
+	if ok {
+		clt.SetAuthed(false)
+	}
 
 	if self.cfg.OnBusReg != nil {
 		self.cfg.OnBusReg(clt.Id, 0)
@@ -275,15 +293,15 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 }
 
 func (self *BusClientMgr) regBusOk(id int64) {
-	self.Lock()
+	self.RLock()
 	v, ok, _ := self.buss.Get(id)
-	self.Unlock()
+	self.RUnlock()
 
 	if !ok {
 		logger.Error("BusClientMgr:BusOk id:%v", id)
 		return
 	}
-	v.(*BusClient).SetAuthed()
+	v.(*BusClient).SetAuthed(true)
 
 	if self.cfg.OnBusReg != nil {
 		self.cfg.OnBusReg(id, 1)
@@ -292,6 +310,14 @@ func (self *BusClientMgr) regBusOk(id int64) {
 
 func (self *BusClientMgr) OnMount(clt *BusClient) {
 	logger.Info("BusClientMgr:OnMount id:%v", clt.Id)
+
+	self.RLock()
+	_, ok, _ := self.buss.Get(clt.Id)
+	self.RUnlock()
+	if !ok {
+		logger.Error("BusClientMgr:OnMount id:%v", clt.Id)
+		return
+	}
 
 	// 发送注册消息
 	msg := &CommonMessage{}
@@ -311,6 +337,8 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 		self.regBusOk(msgdata.SvrInfo.DestId)
 	} else if msgdata.Code == Cmd_NEW_SVR {
 		self.RegBus(msgdata.NewSvrInfo)
+	} else if msgdata.Code == Cmd_DEL_SVR {
+		self.DelBus(msgdata.DelSvrInfo)
 	} else if msgdata.Code == Cmd_PING {
 	} else {
 		logger.Error("BusClientMgr:OnBusData code:%v", msgdata.Code)
@@ -572,6 +600,17 @@ func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
 	msg.NewSvrInfo.DestId = id
 	msg.NewSvrInfo.Ip = ip
 	msg.NewSvrInfo.Port = port
+
+	rmsg := NewBusRawMessage(msg)
+
+	self.SendData(0, true, rmsg, 1)
+}
+
+func (self *BusServerMgr) DelServer(id int64) {
+	msg := &CommonMessage{}
+	msg.Code = Cmd_DEL_SVR
+	msg.DelSvrInfo = &DelSvrInfo{}
+	msg.DelSvrInfo.DestId = id
 
 	rmsg := NewBusRawMessage(msg)
 

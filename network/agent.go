@@ -133,7 +133,6 @@ func (self *Agent) Start(conn net.Conn) {
 
 	atomic.AddInt32(&self.status, 1)
 	defer func() {
-		self.Conn.Close()
 		atomic.AddInt32(&self.status, -1)
 	}()
 
@@ -178,6 +177,8 @@ func (self *Agent) runAgent() {
 
 	tc := time.NewTimer(time.Minute)
 	defer func() {
+		self.Conn.Close()
+
 		close(self.die)
 
 		if self.OnClose != nil {
@@ -210,8 +211,6 @@ func (self *Agent) runAgent() {
 				self.timerCheck()
 			}
 
-		case <-self.die:
-			self.flag |= SESS_KICKED_OUT
 		case <-self.disconn:
 			self.flag |= SESS_KICKED_OUT
 		}

@@ -8,7 +8,8 @@ enum Cmd
 	REG_SVR = 1; // BUS
 	PING = 2; // BUS
 	NEW_SVR = 3; // BUS
-	ROUTE_MSG =4; // BUS
+	DEL_SVR = 4; // BUS
+	ROUTE_MSG =5; // BUS
 }
 
 enum ErrorCode
@@ -35,6 +36,11 @@ message NewSvrInfo
 	string port = 3;
 }
 
+message DelSvrInfo
+{
+	int64 destId =1;
+}
+
 message RouteInfo
 {
     int64 destSvr  = 1; //世界ID_功能ID_逻辑ID, 可以用*
@@ -52,4 +58,5 @@ message CommonMessage
 	RegSvrInfo svrInfo = 11;// BUS注册服务器
 	NewSvrInfo newSvrInfo=12; // BUS收到新的dest 
 	RouteInfo routeInfo = 13; // BUS路由信息 
+	DelSvrInfo delSvrInfo = 14; // 删除BUS
 }
