@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -107,4 +108,16 @@ func Memset(s unsafe.Pointer, c byte, n uintptr) {
 		pByte := (*byte)(unsafe.Pointer(ptr + i))
 		*pByte = c
 	}
+}
+
+func ASyncWait(f func() bool) {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for !f() {
+			time.Sleep(time.Second * 1)
+		}
+	}()
+	wg.Wait()
 }

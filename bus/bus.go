@@ -670,19 +670,9 @@ func (self *BusServerMgr) SendRouteMsg(destSvr int64, destAll bool,
 }
 
 func (self *BusServerMgr) Close() {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			self.RLock()
-			l := len(self.servers)
-			self.RUnlock()
-			if l == 0 {
-				break
-			}
-			time.Sleep(time.Second * 1)
-		}
-	}()
-	wg.Wait()
+	utils.ASyncWait(func() bool {
+		self.RLock()
+		defer self.RUnlock()
+		return len(self.servers) == 0
+	})
 }
