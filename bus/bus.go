@@ -268,12 +268,14 @@ func (self *BusClientMgr) DelBus(sinfo *DelSvrInfo) {
 	defer self.Unlock()
 	v, ok, _ := self.buss.Get(sinfo.DestId)
 	if !ok {
-		logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
+		//logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
 		return
 	}
 
-	self.buss.Del(sinfo.DestId)
+	logger.Info("BusClientMgr:DelBus id:%v,s:%v",
+		sinfo.DestId, GetServerIdStr(sinfo.DestId))
 
+	self.buss.Del(sinfo.DestId)
 	v.(*BusClient).Disconnect()
 }
 
@@ -469,8 +471,11 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 
 	// 绑定id
 	self.Id = req.SrcId
-	self.Mgr.AddSvr(req.SrcId, self)
-
+	if !self.Mgr.AddSvr(req.SrcId, self) {
+		// !
+		self.Close()
+		return
+	}
 	// 少序列化点数据
 	//msg.SvrInfo = nil
 
@@ -530,16 +535,18 @@ func (self *BusServerMgr) init(cfg *Config) {
 	self.servers = make(map[int64]*BusServer, 0)
 }
 
-func (self *BusServerMgr) AddSvr(id int64, svr *BusServer) {
+func (self *BusServerMgr) AddSvr(id int64, svr *BusServer) bool {
 	self.Lock()
 	defer self.Unlock()
 
 	_, ok := self.servers[id]
 	if ok {
-		logger.Warning("BusServerMgr:AddSvr id:%v", id)
+		logger.Error("BusServerMgr:AddSvr id:%v", id)
+		return false
 	}
 
 	self.servers[id] = svr
+	return true
 }
 
 func (self *BusServerMgr) DelSvr(id int64) {
@@ -548,7 +555,7 @@ func (self *BusServerMgr) DelSvr(id int64) {
 
 	_, ok := self.servers[id]
 	if !ok {
-		logger.Warning("BusServerMgr:DelSvr id:%v", id)
+		logger.Error("BusServerMgr:DelSvr id:%v", id)
 		return
 	}
 
@@ -660,4 +667,22 @@ func (self *BusServerMgr) SendRouteMsg(destSvr int64, destAll bool,
 	if rmsg != nil {
 		self.SendData(svrId, all, rmsg, 1)
 	}
+}
+
+func (self *BusServerMgr) Close() {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			self.RLock()
+			l := len(self.servers)
+			self.RUnlock()
+			if l == 0 {
+				break
+			}
+			time.Sleep(time.Second * 1)
+		}
+	}()
+	wg.Wait()
 }
