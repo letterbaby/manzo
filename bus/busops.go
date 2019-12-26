@@ -1,6 +1,7 @@
 package bus
 
 import (
+	fmt "fmt"
 	"strconv"
 	"strings"
 
@@ -64,6 +65,12 @@ func GetServerLogicId(id int64) int64 {
 
 func GetServerId(id int64) (int64, int64, int64) {
 	return int64(byte(id >> 16)), int64(byte(id >> 8)), int64(byte(id))
+}
+
+func GetServerIdStr(id int64) string {
+	rt := fmt.Sprintf("%d_%d_%d",
+		int64(byte(id>>16)), int64(byte(id>>8)), int64(byte(id)))
+	return rt
 }
 
 func MakeWorldFuncId(wid int64, fid int64) int64 {

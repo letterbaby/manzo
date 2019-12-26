@@ -29,9 +29,14 @@ type IMessage interface {
 	UnRegister(msgId uint16)
 }
 
+type SerializedCall func([]byte, interface{})
+
 //-----------------------------------------------------------------------------
 type ProtoMessage struct {
 	msgMap map[uint16]reflect.Type // id池：主要用于识别id对应的结构
+
+	// Hook
+	OnSerialized SerializedCall
 }
 
 func NewProtocParser() IMessage {
@@ -64,6 +69,10 @@ func (self *ProtoMessage) Serialize(msg *RawMessage) (*Buffer, error) {
 	data, err := proto.Marshal(msg.MsgData.(proto.Message))
 	if err != nil {
 		return nil, err
+	}
+
+	if self.OnSerialized != nil {
+		self.OnSerialized(data, msg.MsgData)
 	}
 
 	zip := byte(0)

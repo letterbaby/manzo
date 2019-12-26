@@ -71,7 +71,7 @@ func newBusClient(sinfo *NewSvrInfo, mgr *BusClientMgr) *BusClient {
 	cfg.Parser = mgr.parser
 	cfg.ReadDeadline = 9999999
 
-	if client.init(cfg) {
+	if !client.init(cfg) {
 		return nil
 	}
 	return client
@@ -91,7 +91,7 @@ func (self *BusClient) init(cfg *network.Config) bool {
 
 	self.OnData = self.OnBusData
 	self.OnConnect = func() {
-		self.mgr.RegBus(self)
+		self.mgr.OnMount(self)
 	}
 
 	self.OnDisconnect = func() {
@@ -239,41 +239,27 @@ func (self *BusClientMgr) init(cfg *Config) {
 
 	self.cfg = cfg
 	for _, v := range cfg.BusCfg {
-		self.NewBusClient(v)
+		self.RegBus(v)
 	}
 }
 
-func (self *BusClientMgr) NewBusClient(sinfo *NewSvrInfo) {
+func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
 	if !self.cfg.OnNewBus(sinfo.DestId) {
 		return
 	}
 
-	self.RLock()
+	self.Lock()
+	defer self.Unlock()
+
 	_, ok, _ := self.buss.Get(sinfo.DestId)
-	self.RUnlock()
 	if ok {
 		logger.Error("BusClientMgr:NewBusClient id:%v", sinfo.DestId)
 		return
 	}
-	newBusClient(sinfo, self)
-}
 
-func (self *BusClientMgr) RegBus(clt *BusClient) {
-	logger.Info("BusClientMgr:RegBus id:%v", clt.Id)
+	clt := newBusClient(sinfo, self)
 
-	self.Lock()
 	self.buss.Add(clt.Id, clt)
-	self.Unlock()
-
-	// 发送注册消息
-	msg := &CommonMessage{}
-	msg.Code = Cmd_REG_SVR
-
-	msg.SvrInfo = &RegSvrInfo{}
-	msg.SvrInfo.SrcId = self.cfg.SvrId
-	msg.SvrInfo.DestId = clt.Id
-	rmsg := NewBusRawMessage(msg)
-	clt.SendData(rmsg, false, 1)
 }
 
 func (self *BusClientMgr) UnRegBus(clt *BusClient) {
@@ -304,14 +290,27 @@ func (self *BusClientMgr) regBusOk(id int64) {
 	}
 }
 
+func (self *BusClientMgr) OnMount(clt *BusClient) {
+	logger.Info("BusClientMgr:OnMount id:%v", clt.Id)
+
+	// 发送注册消息
+	msg := &CommonMessage{}
+	msg.Code = Cmd_REG_SVR
+
+	msg.SvrInfo = &RegSvrInfo{}
+	msg.SvrInfo.SrcId = self.cfg.SvrId
+	msg.SvrInfo.DestId = clt.Id
+	rmsg := NewBusRawMessage(msg)
+	clt.SendData(rmsg, false, 1)
+}
+
 func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage {
 	msgdata := msg.MsgData.(*CommonMessage)
 
 	if msgdata.Code == Cmd_REG_SVR {
 		self.regBusOk(msgdata.SvrInfo.DestId)
 	} else if msgdata.Code == Cmd_NEW_SVR {
-		// CHECK wfunc
-		self.NewBusClient(msgdata.NewSvrInfo)
+		self.RegBus(msgdata.NewSvrInfo)
 	} else if msgdata.Code == Cmd_PING {
 	} else {
 		logger.Error("BusClientMgr:OnBusData code:%v", msgdata.Code)
@@ -408,7 +407,8 @@ func (self *BusServer) Initx(cfg *network.Config, mgr *BusServerMgr) {
 }
 
 func (self *BusServer) Hand_Close() {
-	logger.Debug("BusServer:onclose conn:%v,cid:%v", self.Conn, self.Id)
+	logger.Debug("BusServer:onclose conn:%v,id:%v,s:%v", self.Conn,
+		self.Id, GetServerIdStr(self.Id))
 
 	if self.OnDisconnect != nil {
 		self.OnDisconnect()
@@ -436,7 +436,8 @@ func (self *BusServer) Hand_Message(msg *network.RawMessage) *network.RawMessage
 func (self *BusServer) RegClt(msg *CommonMessage) {
 	req := msg.SvrInfo
 
-	logger.Debug("BusServer:RegSvr con:%v, id:%v", self.Conn, req.SrcId)
+	logger.Debug("BusServer:RegSvr con:%v,id:%v,s:%v", self.Conn,
+		req.SrcId, GetServerIdStr(req.SrcId))
 
 	// 绑定id
 	self.Id = req.SrcId

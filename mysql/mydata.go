@@ -173,7 +173,7 @@ func (self *delCmd) OnExcuteSql(clt *DBClient) {
 	}
 }
 
-func (self *MyData) newUiCmd(sql string) *uiCmd {
+func (self *MyData) NewUiCmd(sql string) *uiCmd {
 	uc := &uiCmd{}
 	uc.id = self.Id
 	uc.sql = sql
@@ -181,7 +181,7 @@ func (self *MyData) newUiCmd(sql string) *uiCmd {
 	return uc
 }
 
-func (self *MyData) newDelCmd(sql string) *delCmd {
+func (self *MyData) NewDelCmd(sql string) *delCmd {
 	dc := &delCmd{}
 	dc.id = self.Id
 	dc.sql = sql
@@ -189,7 +189,7 @@ func (self *MyData) newDelCmd(sql string) *delCmd {
 	return dc
 }
 
-func (self *MyData) newLoadCmd(sql string) *loadCmd {
+func (self *MyData) NewLoadCmd(sql string) *loadCmd {
 	lc := &loadCmd{}
 	lc.id = self.Id
 	lc.sql = sql
@@ -255,7 +255,7 @@ func (self *MyData) Save(sync bool, force bool) {
 		logger.Error("MyData:Save ????%v", self.Id)
 	}
 
-	uc := self.newUiCmd(ssql)
+	uc := self.NewUiCmd(ssql)
 	if !self.DbMgr.AddReq(uc, sync) {
 		logger.Error("MyData:Save sql:%s", ssql)
 		return
@@ -321,7 +321,7 @@ func (self *MyData) SaveFiled(filed string, sync bool) {
 		logger.Error("MyData:SaveFiled ????%v", self.Id)
 	}
 
-	uc := self.newUiCmd(ssql)
+	uc := self.NewUiCmd(ssql)
 	if !self.DbMgr.AddReq(uc, sync) {
 		logger.Error("MyData:SaveFiled sql:%s", ssql)
 		return
@@ -347,7 +347,7 @@ func (self *MyData) Create() bool {
 		logger.Error("MyData:Create ????%v", self.Id)
 	}
 
-	uc := self.newUiCmd(ssql)
+	uc := self.NewUiCmd(ssql)
 	if !self.DbMgr.AddReq(uc, true) {
 		logger.Error("MyData:Create sql:%s", ssql)
 		return false
@@ -371,7 +371,7 @@ func (self *MyData) Delete(sync bool) bool {
 		logger.Error("MyData:Delete ????%v", self.Id)
 	}
 
-	dc := self.newDelCmd(ssql)
+	dc := self.NewDelCmd(ssql)
 	if !self.DbMgr.AddReq(dc, sync) {
 		logger.Error("MyData:Delete sql:%s", ssql)
 		return false
@@ -437,7 +437,7 @@ func (self *MyData) Insert(sync bool) bool {
 
 	//logger.Debug("Insert aid:%v", aid)
 
-	uc := self.newUiCmd(ssql)
+	uc := self.NewUiCmd(ssql)
 	if !self.DbMgr.AddReq(uc, sync) {
 		logger.Error("MyData:Insert sql:%s", ssql)
 		return false
@@ -464,7 +464,7 @@ func (self *MyData) Load() int32 {
 		logger.Error("MyData:Load ????%v", self.Id)
 	}
 
-	lc := self.newLoadCmd(ssql)
+	lc := self.NewLoadCmd(ssql)
 	if !self.DbMgr.AddReq(lc, true) {
 		logger.Error("MyData:Load sql:%s", ssql)
 		return Ret_err
