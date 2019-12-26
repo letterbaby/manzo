@@ -244,6 +244,8 @@ func (self *{{upperfc $t.Name}}Data) SetValues(rd map[string]string) {
 			{{- end}}
 
 		{{- end}}
+		default:
+			logger.Error("{{upperfc $t.Name}}Data:SetValues k:%v", k)
 		}
 	}
 }

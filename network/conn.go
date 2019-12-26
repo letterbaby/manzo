@@ -9,6 +9,7 @@ import (
 
 	//"github.com/letterbaby/manzo/logger"
 	. "github.com/letterbaby/manzo/buffer"
+	"github.com/letterbaby/manzo/logger"
 )
 
 var (
@@ -63,6 +64,7 @@ func (self *Conn) SetWriteDeadline(t time.Time) error {
 func (self *Conn) SendMsg(msg interface{}) error {
 	var tbuf *Buffer
 
+	now := time.Now()
 	buf, ok := msg.(*Buffer)
 	if ok {
 		tbuf = buf
@@ -74,6 +76,10 @@ func (self *Conn) SendMsg(msg interface{}) error {
 		tbuf = buf
 	}
 
+	tt := time.Now().Sub(now)
+	if tt > (time.Millisecond * 50) {
+		logger.Warning("Conn:SendMsg tt:%v", tt)
+	}
 	//logger.Debug("Conn:sendMsg conn:%v,data:%v,buf:%v", self, len(tbuf.Data), tbuf)
 	_, err := self.conn.Write(tbuf.Data)
 
@@ -121,10 +127,17 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 		return nil, err
 	}
 
+	now := time.Now()
+
 	//logger.Debug("Conn:recvMsg conn:%v,data:%v,buf:%v", self, len(buf.Data), buf)
 	msg, err := self.check(buf)
 	if err != nil {
 		return nil, err
+	}
+
+	tt := time.Now().Sub(now)
+	if tt > (time.Millisecond * 50) {
+		logger.Warning("Conn:RecvMsg tt:%v", tt)
 	}
 
 	return msg, nil

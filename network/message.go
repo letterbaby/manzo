@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 
 	. "github.com/letterbaby/manzo/buffer"
-	"github.com/letterbaby/manzo/logger"
 )
 
 // 贯穿的流程太长不建议走回收！！！
@@ -71,7 +69,6 @@ func (self *ProtoMessage) Serialize(msg *RawMessage) (*Buffer, error) {
 	zip := byte(0)
 	var buff []byte
 
-	now := time.Now()
 	var out bytes.Buffer
 	zlibw, err := zlib.NewWriterLevel(&out, zlib.BestCompression)
 	if err != nil {
@@ -85,12 +82,6 @@ func (self *ProtoMessage) Serialize(msg *RawMessage) (*Buffer, error) {
 	}
 	zlibw.Close()
 	buff = out.Bytes()
-
-	tt := time.Now().Sub(now)
-	if tt > (time.Millisecond * 50) {
-		logger.Warning("ProtoMessage:Serialize o:%v,n:%v,t:%v",
-			len(data), len(buff), tt)
-	}
 
 	if len(buff) < len(data) {
 		zip = 1
@@ -123,7 +114,6 @@ func (self *ProtoMessage) Deserialize(buf *Buffer) (*RawMessage, error) {
 
 	var buff []byte
 	if zip == 1 {
-		now := time.Now()
 		in := bytes.NewBuffer(data)
 		zlibr, err := zlib.NewReader(in)
 		if err != nil {
@@ -139,12 +129,6 @@ func (self *ProtoMessage) Deserialize(buf *Buffer) (*RawMessage, error) {
 		zlibr.Close()
 
 		buff = out.Bytes()
-
-		tt := time.Now().Sub(now)
-		if tt > (time.Millisecond * 50) {
-			logger.Warning("ProtoMessage:Deserialize o:%v,n:%v,t:%v",
-				len(data), len(buff), tt)
-		}
 	} else {
 		buff = data
 	}
