@@ -55,33 +55,21 @@ func (self *TcpClient) Initx(cfg *Config) *net.TCPAddr {
 	return self.init(cfg)
 }
 
-func (self *TcpClient) Connect(reconnect bool) {
-	if reconnect {
+func (self *TcpClient) Connect(re bool) {
+	if re {
 		atomic.AddInt32(&self.autoReconnect, 1)
 	}
 
-	self.reconnect()
+	if !self.directConn() {
+		self.reConnect()
+	}
 }
 
-func (self *TcpClient) reconnect() {
-
-RETRY:
-
-	// 等待当前连接全部释放
-	for self.IsConnected() {
-		time.Sleep(2 * time.Second)
-	}
-
+func (self *TcpClient) directConn() bool {
 	// Resolve??
 	conn, err := net.DialTCP("tcp", nil, self.addr)
 	if err != nil {
-		time.Sleep(5 * time.Second)
-
-		if atomic.LoadInt32(&self.autoReconnect) <= 0 {
-			return
-		}
-		logger.Warning("TcpClient:reconnect tcp:%v,%v", self.Conn, self.cfg.ServerAddress)
-		goto RETRY
+		return false
 	}
 
 	logger.Info("TcpClient:connect tcp:%v", self.cfg)
@@ -91,6 +79,27 @@ RETRY:
 		//conn.SetNoDelay(false)
 		self.Start(conn)
 	}()
+	return true
+}
+
+func (self *TcpClient) reConnect() {
+
+RETRY:
+	time.Sleep(5 * time.Second)
+
+	logger.Warning("TcpClient:reconnect tcp:%v,%v", self.Conn, self.cfg.ServerAddress)
+	// 等待当前连接全部释放
+	for self.IsConnected() {
+		time.Sleep(2 * time.Second)
+	}
+
+	if atomic.LoadInt32(&self.autoReconnect) <= 0 {
+		return
+	}
+
+	if !self.directConn() {
+		goto RETRY
+	}
 }
 
 func (self *TcpClient) Hand_Start() {
@@ -116,11 +125,10 @@ func (self *TcpClient) Hand_Close() {
 
 	// 去重连
 	if atomic.LoadInt32(&self.autoReconnect) > 0 {
-		logger.Warning("TcpClient:reconnect tcp:%v,%v", self.Conn, self.cfg.ServerAddress)
 		go func() {
 			defer utils.CatchPanic()
 
-			self.reconnect()
+			self.reConnect()
 		}()
 	}
 }

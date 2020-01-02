@@ -266,21 +266,23 @@ func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
 func (self *BusClientMgr) DelBus(sinfo *DelSvrInfo) {
 	self.Lock()
 	defer self.Unlock()
+
+	logger.Info("BusClientMgr:DelBus id:%v,s:%v", sinfo.DestId,
+		GetServerIdStr(sinfo.DestId))
+
 	v, ok, _ := self.buss.Get(sinfo.DestId)
 	if !ok {
 		//logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
 		return
 	}
 
-	logger.Info("BusClientMgr:DelBus id:%v,s:%v",
-		sinfo.DestId, GetServerIdStr(sinfo.DestId))
-
 	self.buss.Del(sinfo.DestId)
 	v.(*BusClient).Disconnect()
 }
 
 func (self *BusClientMgr) UnRegBus(clt *BusClient) {
-	logger.Info("BusClientMgr:UnRegBus id:%v", clt.Id)
+	logger.Info("BusClientMgr:UnRegBus id:%v,s:%v", clt.Id,
+		GetServerIdStr(clt.Id))
 
 	self.RLock()
 	_, ok, _ := self.buss.Get(clt.Id)
@@ -295,6 +297,9 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 }
 
 func (self *BusClientMgr) regBusOk(id int64) {
+	logger.Info("BusClientMgr:regBusOk id:%v,s:%v", id,
+		GetServerIdStr(id))
+
 	self.RLock()
 	v, ok, _ := self.buss.Get(id)
 	self.RUnlock()
@@ -311,7 +316,8 @@ func (self *BusClientMgr) regBusOk(id int64) {
 }
 
 func (self *BusClientMgr) OnMount(clt *BusClient) {
-	logger.Info("BusClientMgr:OnMount id:%v", clt.Id)
+	logger.Info("BusClientMgr:OnMount id:%v,s:%v", clt.Id,
+		GetServerIdStr(clt.Id))
 
 	self.RLock()
 	_, ok, _ := self.buss.Get(clt.Id)
@@ -386,7 +392,7 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 				// !!!sync
 				rmsg = NewBusRawMessage(msg.MsgData.(*CommonMessage))
 			}
-			v.SendData(rmsg, sync, to)
+			rt = v.SendData(rmsg, sync, to)
 		}
 	} else {
 		rt = t[rand.RandInt(0, int32(len(t)-1))].SendData(msg, sync, to)
@@ -444,7 +450,9 @@ func (self *BusServer) Hand_Close() {
 		self.OnDisconnect()
 	}
 
-	self.Mgr.DelSvr(self.Id)
+	if self.Id > 0 {
+		self.Mgr.DelSvr(self.Id)
+	}
 }
 
 func (self *BusServer) Hand_Message(msg *network.RawMessage) *network.RawMessage {
@@ -469,13 +477,14 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 	logger.Debug("BusServer:RegSvr con:%v,id:%v,s:%v", self.Conn,
 		req.SrcId, GetServerIdStr(req.SrcId))
 
-	// 绑定id
-	self.Id = req.SrcId
 	if !self.Mgr.AddSvr(req.SrcId, self) {
 		// !
 		self.Close()
 		return
 	}
+
+	// 绑定id
+	self.Id = req.SrcId
 	// 少序列化点数据
 	//msg.SvrInfo = nil
 
@@ -539,6 +548,8 @@ func (self *BusServerMgr) AddSvr(id int64, svr *BusServer) bool {
 	self.Lock()
 	defer self.Unlock()
 
+	logger.Info("BusServerMgr:AddSvr id:%v,s:%s", id, GetServerIdStr(id))
+
 	_, ok := self.servers[id]
 	if ok {
 		logger.Error("BusServerMgr:AddSvr id:%v", id)
@@ -552,6 +563,8 @@ func (self *BusServerMgr) AddSvr(id int64, svr *BusServer) bool {
 func (self *BusServerMgr) DelSvr(id int64) {
 	self.Lock()
 	defer self.Unlock()
+
+	logger.Info("BusServerMgr:DelSvr id:%v,s:%s", id, GetServerIdStr(id))
 
 	_, ok := self.servers[id]
 	if !ok {

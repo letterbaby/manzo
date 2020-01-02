@@ -3,6 +3,7 @@ package mysql
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	//"github.com/letterbaby/manzo/utils"
 	"github.com/letterbaby/manzo/logger"
@@ -75,6 +76,9 @@ func (self *uiCmd) GetDBSn() int8 {
 // 取信息
 func (self *uiCmd) OnExcuteSql(clt *DBClient) {
 	self.ok = false
+
+	logger.Debug("uiCmd:OnExcuteSql sql:%s,t:%v,sn:%v", self.sql, time.Now().UnixNano(), clt.sn)
+
 	_, res, err := clt.ExcuteSql(self.sql)
 	if err != nil {
 		logger.Error("uiCmd:OnExcuteSql sql:%s,i:%v", self.sql, err)

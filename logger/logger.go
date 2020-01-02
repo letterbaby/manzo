@@ -70,6 +70,8 @@ type Handler interface {
 	close()
 }
 
+type OnLenCall func(len int64) bool
+
 // 用golang的log库
 type LogHandler struct {
 	lg *log.Logger
@@ -80,6 +82,10 @@ type LogHandler struct {
 	cfg *Config
 
 	classifyLvl Level // 分类等级
+
+	totalLen int64
+
+	OnLen OnLenCall
 }
 
 func (self *LogHandler) path(dir string, name string, rule int32) string {
@@ -118,14 +124,26 @@ func (self *LogHandler) async() {
 	self.closed = make(chan bool, 0)
 	self.msgs = make(chan string, 10240)
 
-	go self.run()
+	go func() {
+		for {
+			self.run()
+			time.Sleep(time.Second * 5)
+		}
+	}()
 }
 
 func (self *LogHandler) run() {
+	// ???
 	for {
 		select {
 		case msg := <-self.msgs:
 			self.lg.Output(0, msg)
+			self.totalLen = self.totalLen + int64(len(msg))
+			if self.OnLen != nil {
+				if self.OnLen(self.totalLen) {
+					self.totalLen = 0
+				}
+			}
 		case <-self.closed:
 			return
 		}
@@ -285,25 +303,20 @@ func (self *RotatingHandler) init(classifyLvl Level, cfg *Config) {
 	self.lg = log.New(logfile, "", log.LstdFlags)
 	self.logfile = logfile
 
-	self.async()
-
-	go self.tick()
-}
-
-func (self *RotatingHandler) tick() {
-	//CatchPanic
-	timer := time.NewTicker(5 * time.Second)
-	//???
-	defer func() {
-		timer.Stop()
-	}()
-
-	for {
-		select {
-		case <-timer.C:
-			self.check()
+	self.OnLen = func(len int64) bool {
+		if len < self.cfg.MaxSize*1024*1024 {
+			return false
 		}
+
+		//!!!
+		self.logfile.Close()
+
+		self.logfile, _ = os.Create(self.path(self.cfg.Dir, na, self.cfg.NameRule))
+		self.lg.SetOutput(self.logfile)
+		return true
 	}
+
+	self.async()
 }
 
 func (self *RotatingHandler) close() {
@@ -313,28 +326,6 @@ func (self *RotatingHandler) close() {
 	if self.logfile != nil {
 		self.logfile.Close()
 	}
-}
-
-func (self *RotatingHandler) check() {
-	st, _ := self.logfile.Stat()
-	if st.Size() < self.cfg.MaxSize {
-		return
-	}
-
-	//race1
-	lf := self.logfile
-	defer func() {
-		lf.Close()
-	}()
-
-	na := self.cfg.Name
-	if self.classifyLvl != 0 {
-		a, e := getFileNameAndExt(na)
-		na = a + "_" + self.classifyLvl.String() + e
-	}
-
-	self.logfile, _ = os.Create(self.path(self.cfg.Dir, na, self.cfg.NameRule))
-	self.lg.SetOutput(self.logfile)
 }
 
 type Logger struct {
