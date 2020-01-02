@@ -95,12 +95,7 @@ func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 	self.conn.Connect()
 
 	self.dbwt.Add(1)
-	go func() {
-		for {
-			self.run()
-			time.Sleep(time.Second * 5)
-		}
-	}()
+	go self.run()
 }
 
 // 增加数据访问指令

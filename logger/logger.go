@@ -124,12 +124,7 @@ func (self *LogHandler) async() {
 	self.closed = make(chan bool, 0)
 	self.msgs = make(chan string, 10240)
 
-	go func() {
-		for {
-			self.run()
-			time.Sleep(time.Second * 5)
-		}
-	}()
+	go self.run()
 }
 
 func (self *LogHandler) run() {

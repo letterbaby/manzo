@@ -61,6 +61,26 @@ func (self *TcpServer) init(cfg *Config) net.Listener {
 		logger.Warning("TcpServer:init MaxConnNum <= 0 defalut 10240")
 	}
 
+	if self.cfg.ReadDeadline <= 0 {
+		self.cfg.ReadDeadline = 5 * 60
+		logger.Warning("TcpServer:init ReadDeadline <= 0 defalut 5m")
+	}
+	if self.cfg.WriteDeadline <= 0 {
+		self.cfg.WriteDeadline = 10
+		logger.Warning("TcpServer:init WriteDeadline <= 0 defalut 10s")
+	}
+
+	/*
+		if self.cfg.Rpm <= 0 {
+			self.cfg.Rpm = 1024
+			logger.Warning("TcpServer:init Rpm <= 0 defalut 1024")
+		}
+	*/
+	if self.cfg.AsyncMQ <= 0 {
+		self.cfg.AsyncMQ = 10240
+		logger.Warning("TcpServer:init AsyncMQ <= 0 defalut 10240")
+	}
+
 	self.listener = listener
 	return listener
 }
@@ -69,13 +89,13 @@ func (self *TcpServer) Serve(block bool) {
 	if block {
 		self.run()
 	}
+
+	self.mutexWG.Add(1)
 	go self.run()
 }
 
 func (self *TcpServer) run() {
 	defer utils.CatchPanic()
-
-	self.mutexWG.Add(1)
 	defer self.mutexWG.Done()
 
 	for {
@@ -92,10 +112,11 @@ func (self *TcpServer) run() {
 		}
 		self.conns[conn] = struct{}{}
 		self.mutexConns.Unlock()
+
+		self.wgConns.Add(1)
 		go func() {
 			defer utils.CatchPanic()
 
-			self.wgConns.Add(1)
 			defer func() {
 				self.wgConns.Done()
 
@@ -112,14 +133,18 @@ func (self *TcpServer) run() {
 
 func (self *TcpServer) Close() {
 	self.listener.Close()
+
+	// Listen
 	self.mutexWG.Wait()
+
 	self.mutexConns.Lock()
+	logger.Info("TcpServer:close conns:%d", len(self.conns))
+
 	for conn := range self.conns {
 		conn.Close()
 	}
-	self.conns = nil
 	self.mutexConns.Unlock()
-	self.wgConns.Wait()
 
-	logger.Info("TcpServer:close tcp:%v,conns:%d", self, len(self.conns))
+	// Agent
+	self.wgConns.Wait()
 }
