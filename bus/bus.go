@@ -122,12 +122,12 @@ func (self *BusClient) GetAuthed() bool {
 func (self *BusClient) RecvRouteMsg(msg *network.RawMessage) {
 	rmsg := NewRouteRawMessageIn(msg, self.mgr.cfg.Parser)
 
-	if msg.Seq != 0 {
-		self.callerDone(msg.Seq, rmsg)
+	if msg.Seq == 0 {
+		self.mgr.RecvRouteMsg(rmsg)
 		return
 	}
 
-	self.mgr.RecvRouteMsg(rmsg)
+	self.callerDone(msg.Seq, rmsg)
 }
 
 func (self *BusClient) OnBusData(msg *network.RawMessage) *network.RawMessage {
@@ -138,9 +138,9 @@ func (self *BusClient) OnBusData(msg *network.RawMessage) *network.RawMessage {
 	} else {
 		if msg.Seq == 0 {
 			return self.mgr.OnBusData(msg)
-		} else {
-			self.callerDone(msg.Seq, msg)
 		}
+
+		self.callerDone(msg.Seq, msg)
 	}
 	return nil
 }
@@ -508,6 +508,7 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 
 	// 绑定id
 	self.Id = req.SrcId
+	self.Authed = true
 	// 少序列化点数据
 	//msg.SvrInfo = nil
 

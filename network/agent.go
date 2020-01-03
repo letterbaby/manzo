@@ -65,12 +65,11 @@ func (self *Agent) Init(cfg *Config) {
 		logger.Warning("Agent:init WriteDeadline <= 0 defalut 10s")
 	}
 
-	/*
-		if self.cfg.Rpm <= 0 {
-			self.cfg.Rpm = 1024
-			logger.Warning("TcpServer:init Rpm <= 0 defalut 1024")
-		}
-	*/
+	if self.cfg.Rpm <= 0 {
+		self.cfg.Rpm = 1024
+		logger.Warning("Agent:init Rpm <= 0 defalut 1024")
+	}
+
 	if self.cfg.AsyncMQ <= 0 {
 		self.cfg.AsyncMQ = 10240
 		logger.Warning("Agent:init AsyncMQ <= 0 defalut 10240")
@@ -192,7 +191,7 @@ func (self *Agent) runAgent() {
 			if !ok {
 				return
 			}
-			rt := self.handin(msg)
+			rt := self.handIn(msg)
 			if rt != nil {
 				self.SendMsg(rt, 1)
 			}
@@ -202,16 +201,11 @@ func (self *Agent) runAgent() {
 				return
 			}
 
-			self.handinner(msg)
+			self.handInner(msg)
 		case <-tc.C:
 			// 不认证的连接都干了,调试阶段不开启
-			if !self.Authed {
-				//self.flag |= SESS_KICKED_OUT
-			} else {
-				tc.Reset(time.Minute)
-				self.timerCheck()
-			}
-
+			self.timerCheck()
+			tc.Reset(time.Minute)
 		case <-self.disconn:
 			self.flag |= SESS_KICKED_OUT
 		}
@@ -222,7 +216,7 @@ func (self *Agent) runAgent() {
 	}
 }
 
-func (self *Agent) handin(msg *RawMessage) *RawMessage {
+func (self *Agent) handIn(msg *RawMessage) *RawMessage {
 	self.packetCountOneMin++
 	self.packetTime = time.Now()
 	self.lastPacketTime = self.packetTime
@@ -244,7 +238,7 @@ func (self *Agent) handin(msg *RawMessage) *RawMessage {
 	return outmsg
 }
 
-func (self *Agent) handinner(msg interface{}) {
+func (self *Agent) handInner(msg interface{}) {
 	logger.Debug("Agent:handinner conn:%v,msg:%v", self.Conn, msg)
 
 	now := time.Now()
@@ -261,13 +255,20 @@ func (self *Agent) handinner(msg interface{}) {
 }
 
 func (self *Agent) timerCheck() {
-	defer func() {
-		self.packetCountOneMin = 0
-	}()
-	if self.packetCountOneMin > self.cfg.Rpm {
-		//self.flag |= SESS_KICKED_OUT
-		//logger.Warning("Agent:timercheck conn:%v,rpm:%v", self.Conn, self.packetCountOneMin)
+	// 认证过了
+	if self.Authed {
+		return
 	}
+
+	//rmp
+	if self.packetCountOneMin < self.cfg.Rpm {
+		return
+	}
+
+	self.packetCountOneMin = 0
+	self.flag |= SESS_KICKED_OUT
+	logger.Warning("Agent:timercheck conn:%v,rpm:%v,athed:%v", self.Conn,
+		self.packetCountOneMin, self.Authed)
 }
 
 func (self *Agent) runSend() {

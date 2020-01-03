@@ -70,12 +70,11 @@ func (self *TcpServer) init(cfg *Config) net.Listener {
 		logger.Warning("TcpServer:init WriteDeadline <= 0 defalut 10s")
 	}
 
-	/*
-		if self.cfg.Rpm <= 0 {
-			self.cfg.Rpm = 1024
-			logger.Warning("TcpServer:init Rpm <= 0 defalut 1024")
-		}
-	*/
+	if self.cfg.Rpm <= 0 {
+		self.cfg.Rpm = 1024
+		logger.Warning("TcpServer:init Rpm <= 0 defalut 1024")
+	}
+
 	if self.cfg.AsyncMQ <= 0 {
 		self.cfg.AsyncMQ = 10240
 		logger.Warning("TcpServer:init AsyncMQ <= 0 defalut 10240")
