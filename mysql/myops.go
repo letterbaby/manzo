@@ -38,7 +38,10 @@ func (self *MyOps) init(cfg *Config) {
 	// UTF8
 	self.conn.Register("SET NAMES utf8")
 	// 尝试连接mysql
-	self.conn.Connect()
+	err := self.conn.Connect()
+	if err != nil {
+		logger.Fatal("MyOps:init cfg:%v", cfg)
+	}
 }
 
 // 去默认字段

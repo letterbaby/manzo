@@ -148,6 +148,7 @@ func (self *Agent) Start(conn net.Conn) {
 	if self.OnStart != nil {
 		self.OnStart()
 	}
+
 	go self.runSend()
 	go self.runAgent()
 
@@ -232,7 +233,9 @@ func (self *Agent) handin(msg *RawMessage) *RawMessage {
 
 	var outmsg *RawMessage
 	if self.OnMessage != nil {
-		outmsg = self.OnMessage(msg)
+		utils.DebugCall(func() {
+			outmsg = self.OnMessage(msg)
+		}, 10)
 	}
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {
@@ -247,7 +250,9 @@ func (self *Agent) handinner(msg interface{}) {
 	now := time.Now()
 
 	if self.OnInnerMsg != nil {
-		self.OnInnerMsg(msg)
+		utils.DebugCall(func() {
+			self.OnInnerMsg(msg)
+		}, 10)
 	}
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {

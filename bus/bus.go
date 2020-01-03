@@ -421,6 +421,29 @@ func (self *BusClientMgr) SendRouteMsg(destSvr int64, destAll bool,
 	return nil
 }
 
+func (self *BusClientMgr) Close() {
+	self.RLock()
+	for _, v := range self.buss.Pairs() {
+		clt := v.Value.(*BusClient)
+		clt.Disconnect()
+	}
+	self.RUnlock()
+
+	utils.ASyncWait(func() bool {
+		self.RLock()
+		hs := self.buss.Values()
+		self.RUnlock()
+
+		for _, v := range hs {
+			clt := v.(*BusClient)
+			if clt.GetAuthed() {
+				return false
+			}
+		}
+		return true
+	})
+}
+
 //------------------------------------------------------------------------------------
 
 type BusServer struct {

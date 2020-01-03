@@ -92,7 +92,10 @@ func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 	// UTF8
 	self.conn.Register("SET NAMES utf8")
 	// 尝试连接mysql
-	self.conn.Connect()
+	err := self.conn.Connect()
+	if err != nil {
+		logger.Fatal("DBClient:init cfg:%v", cfg)
+	}
 
 	self.dbwt.Add(1)
 	go self.run()

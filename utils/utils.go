@@ -16,6 +16,10 @@ import (
 	"github.com/letterbaby/manzo/logger"
 )
 
+const (
+	DEBUG_CALL = 1
+)
+
 func CatchPanic() {
 	if x := recover(); x != nil {
 		logger.Error("Panic %v", x)
@@ -120,4 +124,22 @@ func ASyncWait(f func() bool) {
 		}
 	}()
 	wg.Wait()
+}
+
+func DebugCall(f func(), to int64) {
+	if DEBUG_CALL == 0 {
+		f()
+	} else {
+		ch := make(chan byte, 1)
+		go func() {
+			f()
+			ch <- 1
+		}()
+
+		select {
+		case <-ch:
+		case <-time.After(time.Second * time.Duration(to)):
+			panic("DebugCall")
+		}
+	}
 }
