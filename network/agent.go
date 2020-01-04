@@ -203,9 +203,11 @@ func (self *Agent) runAgent() {
 
 			self.handInner(msg)
 		case <-tc.C:
-			// 不认证的连接都干了,调试阶段不开启
-			self.timerCheck()
-			tc.Reset(time.Minute)
+			if !self.timerCheck() {
+				self.flag |= SESS_KICKED_OUT
+			} else {
+				tc.Reset(time.Minute)
+			}
 		case <-self.disconn:
 			self.flag |= SESS_KICKED_OUT
 		}
@@ -254,21 +256,16 @@ func (self *Agent) handInner(msg interface{}) {
 	}
 }
 
-func (self *Agent) timerCheck() {
-	// 认证过了
-	if self.Authed {
-		return
-	}
-
-	//rmp
-	if self.packetCountOneMin < self.cfg.Rpm {
-		return
+func (self *Agent) timerCheck() bool {
+	// 不认证的连接都干了,调试阶段可以不开启
+	if !self.Authed || self.packetCountOneMin > self.cfg.Rpm {
+		logger.Warning("Agent:timercheck conn:%v,rpm:%v,athed:%v", self.Conn,
+			self.packetCountOneMin, 1)
+		return false
 	}
 
 	self.packetCountOneMin = 0
-	self.flag |= SESS_KICKED_OUT
-	logger.Warning("Agent:timercheck conn:%v,rpm:%v,athed:%v", self.Conn,
-		self.packetCountOneMin, self.Authed)
+	return true
 }
 
 func (self *Agent) runSend() {
