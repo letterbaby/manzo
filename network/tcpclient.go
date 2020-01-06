@@ -20,7 +20,7 @@ type TcpClient struct {
 	OnData       func(msg *RawMessage) *RawMessage
 	OnDisconnect func()
 
-	pingctrl chan bool
+	pingd chan struct{}
 }
 
 func NewTcpClient(cfg *Config) *TcpClient {
@@ -89,11 +89,12 @@ RETRY:
 
 	logger.Warning("TcpClient:reconnect tcp:%v,%v", self.Conn, self.cfg.ServerAddress)
 	// 等待当前连接全部释放
-	for self.IsConnected() {
+	for self.IsStarted() {
 		time.Sleep(2 * time.Second)
 	}
 
 	if atomic.LoadInt32(&self.autoReconnect) <= 0 {
+
 		return
 	}
 
@@ -109,8 +110,8 @@ func (self *TcpClient) Hand_Start() {
 	}
 
 	if self.OnPing != nil {
-		self.pingctrl = make(chan bool, 0)
-		go self.ping()
+		self.pingd = make(chan struct{}, 0)
+		go self.ping(self.pingd)
 	}
 }
 
@@ -120,7 +121,7 @@ func (self *TcpClient) Hand_Close() {
 	}
 
 	if self.OnPing != nil {
-		self.pingctrl <- true
+		close(self.pingd)
 	}
 
 	// 去重连
@@ -140,7 +141,7 @@ func (self *TcpClient) Hand_Message(msg *RawMessage) *RawMessage {
 	return nil
 }
 
-func (self *TcpClient) ping() {
+func (self *TcpClient) ping(die chan struct{}) {
 	defer utils.CatchPanic()
 
 	timer := time.NewTicker(10 * time.Second)
@@ -153,15 +154,15 @@ func (self *TcpClient) ping() {
 		select {
 		case <-timer.C:
 			self.OnPing()
-		case <-self.pingctrl:
+		case <-die:
 			return
 		}
 	}
 }
 
 func (self *TcpClient) Disconnect() {
-	logger.Info("TcpClient:close tcp:%v", self.Conn)
 	// 停止重连
 	atomic.AddInt32(&self.autoReconnect, -1)
+	logger.Info("TcpClient:close tcp:%v", self.Conn)
 	self.Close()
 }

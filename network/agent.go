@@ -23,28 +23,22 @@ type Agent struct {
 	cfg  *Config
 	Conn IConn // 当前会话
 
-	in  chan *RawMessage // 收到客户端的消息
-	out chan interface{} // 返回给客户端的异步消息
+	in      chan *RawMessage // 收到客户端的消息
+	out     chan interface{} // 返回给客户端的异步消息
+	inner   chan interface{} // 内部消息队列
+	disconn chan bool
 
-	inner chan interface{} // 内部消息队列
-
-	die               chan struct{} // 会话关闭信号
 	flag              int32         // 会话标记
-	connectTime       time.Time     // 链接建立时间
-	packetTime        time.Time     // 当前包的到达时间
-	lastPacketTime    time.Time     // 上一个包到达时间
+	die1              chan struct{} // 会话关闭信号
+	die2              chan struct{} // 会话关闭信号
+	Authed            bool          // 认证过了
+	started           int32         // 当前状态
 	packetCountOneMin int           // 每分钟的包统计，用于RPM判断
 
 	OnStart    func()
 	OnClose    func()
 	OnMessage  func(msg *RawMessage) *RawMessage
 	OnInnerMsg func(msg interface{})
-
-	Authed bool // 认证过了
-
-	status int32 // 当前状态
-
-	disconn chan bool
 }
 
 func NewAgent(cfg *Config) IAgent {
@@ -75,9 +69,10 @@ func (self *Agent) Init(cfg *Config) {
 		logger.Warning("Agent:init AsyncMQ <= 0 defalut 10240")
 	}
 
+	self.disconn = make(chan bool, 1)
 	self.inner = make(chan interface{}, 1024)
 	self.out = make(chan interface{}, self.cfg.AsyncMQ)
-	self.disconn = make(chan bool, 1)
+	self.in = make(chan *RawMessage, self.cfg.AsyncMQ)
 }
 
 func (self *Agent) SendMsg(msg interface{}, to int32) {
@@ -104,10 +99,6 @@ func (self *Agent) InnerMsg(msg interface{}, to int32) {
 	}
 }
 
-func (self *Agent) IsConnected() bool {
-	return atomic.LoadInt32(&self.status) > 0
-}
-
 // 外部调用
 func (self *Agent) Close() bool {
 	select {
@@ -125,30 +116,37 @@ func (self *Agent) SetCloseFlag() {
 	self.flag |= SESS_KICKED_OUT
 }
 
+func (self *Agent) IsStarted() bool {
+	return atomic.LoadInt32(&self.started) > 0
+}
+
 func (self *Agent) Start(conn net.Conn) {
 	// 取链接配置
 	self.Conn = &Conn{}
 	self.Conn.Init(self.cfg, conn)
-
-	atomic.AddInt32(&self.status, 1)
-	defer func() {
-		atomic.AddInt32(&self.status, -1)
-	}()
-
 	logger.Info("Agent:start conn:%v", self.Conn)
-	self.in = make(chan *RawMessage, self.cfg.AsyncMQ)
+	// reconnect
+	self.flag = 0
+	self.Authed = false
+	self.packetCountOneMin = 0
+	self.started = 0
+	self.die1 = make(chan struct{})
+	self.die2 = make(chan struct{})
 
+	atomic.AddInt32(&self.started, 1)
 	defer func() {
-		close(self.in)
+		atomic.AddInt32(&self.started, -1)
 	}()
-
-	self.die = make(chan struct{})
 
 	if self.OnStart != nil {
 		self.OnStart()
 	}
 
-	go self.runSend()
+	defer func() {
+		close(self.die1)
+	}()
+
+	go self.runSend(self.die2)
 	go self.runAgent()
 
 	tc := time.Duration(self.cfg.ReadDeadline) * time.Second
@@ -165,7 +163,7 @@ func (self *Agent) Start(conn net.Conn) {
 		select {
 		case self.in <- msg:
 			//logger.Debug("Agent:start msg:%v,%v", self.Conn, msg)
-		case <-self.die:
+		case <-self.die2:
 			logger.Warning("Agent:start conn:%v,die:?", self.Conn)
 			return
 		}
@@ -177,9 +175,9 @@ func (self *Agent) runAgent() {
 
 	tc := time.NewTimer(time.Minute)
 	defer func() {
-		self.Conn.Close()
+		close(self.die2)
 
-		close(self.die)
+		self.Conn.Close()
 
 		if self.OnClose != nil {
 			self.OnClose()
@@ -204,12 +202,14 @@ func (self *Agent) runAgent() {
 			self.handInner(msg)
 		case <-tc.C:
 			if !self.timerCheck() {
-				self.flag |= SESS_KICKED_OUT
+				return
 			} else {
 				tc.Reset(time.Minute)
 			}
 		case <-self.disconn:
-			self.flag |= SESS_KICKED_OUT
+			return
+		case <-self.die1:
+			return
 		}
 
 		if self.flag&SESS_KICKED_OUT != 0 {
@@ -220,8 +220,6 @@ func (self *Agent) runAgent() {
 
 func (self *Agent) handIn(msg *RawMessage) *RawMessage {
 	self.packetCountOneMin++
-	self.packetTime = time.Now()
-	self.lastPacketTime = self.packetTime
 
 	logger.Debug("Agent:handin conn:%v,msg:%v", self.Conn, msg)
 
@@ -268,14 +266,14 @@ func (self *Agent) timerCheck() bool {
 	return true
 }
 
-func (self *Agent) runSend() {
+func (self *Agent) runSend(die chan struct{}) {
 	defer utils.CatchPanic()
 
 	for {
 		select {
 		case data := <-self.out:
 			self.rawSend(data)
-		case <-self.die:
+		case <-die:
 			return
 		}
 	}

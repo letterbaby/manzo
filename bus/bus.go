@@ -70,6 +70,7 @@ func newBusClient(sinfo *NewSvrInfo, mgr *BusClientMgr) *BusClient {
 
 	cfg.Parser = mgr.parser
 	cfg.ReadDeadline = 9999999
+	cfg.Rpm = 9999999
 
 	if !client.init(cfg) {
 		return nil
@@ -461,6 +462,7 @@ func (self *BusServer) Initx(cfg *network.Config, mgr *BusServerMgr) {
 
 	ncfg := &network.Config{}
 	ncfg.Parser = mgr.parser
+	ncfg.Rpm = 9999999
 
 	self.Init(ncfg)
 }
