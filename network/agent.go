@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	SESS_KICKED_OUT = 0x1 // 剔除
+	SESS_KICKED_OUT = 0x1  // 剔除
+	TIMER_ACC       = 1000 // 定时器精度
 )
 
 type IAgent interface {
@@ -34,11 +35,13 @@ type Agent struct {
 	Authed            bool          // 认证过了
 	started           int32         // 当前状态
 	packetCountOneMin int           // 每分钟的包统计，用于RPM判断
+	packetMin         int
 
 	OnStart    func()
 	OnClose    func()
 	OnMessage  func(msg *RawMessage) *RawMessage
 	OnInnerMsg func(msg interface{})
+	OnTimer    func(d int64)
 }
 
 func NewAgent(cfg *Config) IAgent {
@@ -129,6 +132,7 @@ func (self *Agent) Start(conn net.Conn) {
 	self.flag = 0
 	self.Authed = false
 	self.packetCountOneMin = 0
+	self.packetMin = 0
 	self.started = 0
 	self.die1 = make(chan struct{})
 	self.die2 = make(chan struct{})
@@ -173,8 +177,10 @@ func (self *Agent) Start(conn net.Conn) {
 func (self *Agent) runAgent() {
 	defer utils.CatchPanic()
 
-	tc := time.NewTimer(time.Minute)
+	tc := time.NewTicker(time.Second * TIMER_ACC)
 	defer func() {
+		tc.Stop()
+
 		close(self.die2)
 
 		self.Conn.Close()
@@ -203,8 +209,6 @@ func (self *Agent) runAgent() {
 		case <-tc.C:
 			if !self.timerCheck() {
 				return
-			} else {
-				tc.Reset(time.Minute)
 			}
 		case <-self.disconn:
 			return
@@ -255,6 +259,15 @@ func (self *Agent) handInner(msg interface{}) {
 }
 
 func (self *Agent) timerCheck() bool {
+	if self.OnTimer != nil {
+		self.OnTimer(TIMER_ACC)
+	}
+
+	self.packetMin = self.packetMin + TIMER_ACC
+	if self.packetMin < 60*1000 {
+		return true
+	}
+
 	// 不认证的连接都干了,调试阶段可以不开启
 	if !self.Authed || self.packetCountOneMin > self.cfg.Rpm {
 		logger.Warning("Agent:timercheck conn:%v,rpm:%v,athed:%v", self.Conn,
@@ -262,6 +275,7 @@ func (self *Agent) timerCheck() bool {
 		return false
 	}
 
+	self.packetMin = 0
 	self.packetCountOneMin = 0
 	return true
 }
