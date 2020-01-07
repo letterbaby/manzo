@@ -11,7 +11,6 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-
 //TODO:兼容普通的Lua模式,这个有点定制
 
 // 负载
@@ -22,24 +21,24 @@ func (self LSHeap) Len() int {
 }
 
 func (self LSHeap) Less(i, j int) bool {
-	return self[i].RefCount() < self[j].RefCount()
+	return self[i].HeapRef < self[j].HeapRef
 }
 
 func (self LSHeap) Swap(i, j int) {
 	self[i], self[j] = self[j], self[i]
-	self[i].index = i
-	self[j].index = j
+	self[i].HeapIdx = i
+	self[j].HeapIdx = j
 }
 
 func (self *LSHeap) Push(s interface{}) {
-	s.(*LuaState).index = len(*self)
+	s.(*LuaState).HeapIdx = len(*self)
 	*self = append(*self, s.(*LuaState))
 }
 
 func (self *LSHeap) Pop() interface{} {
 	l := len(*self)
 	s := (*self)[l-1]
-	s.index = -1
+	s.HeapIdx = -1
 	*self = (*self)[:l-1]
 	return s
 }
@@ -84,6 +83,8 @@ func (self *Lua) Init(loadlibs func(s *lua.LState)) {
 		}(i)
 	}
 	wg.Wait()
+
+	heap.Init(&self.Lsh)
 }
 
 // 用到luastate的必须先释放
@@ -103,6 +104,7 @@ func (self *Lua) Close() {
 func (self *Lua) Ref(id int32, out chan *LuaMessage, msg interface{}) *LuaState {
 	self.Lock()
 	ls := self.Lsh[0]
+	ls.HeapRef++
 	heap.Fix(&self.Lsh, 0)
 	self.Unlock()
 
@@ -116,6 +118,7 @@ func (self *Lua) UnRef(id int32, ls *LuaState) {
 	ls.UnRef(id)
 
 	self.Lock()
-	heap.Fix(&self.Lsh, ls.index)
+	ls.HeapRef--
+	heap.Fix(&self.Lsh, ls.HeapIdx)
 	self.Unlock()
 }

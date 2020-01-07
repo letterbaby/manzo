@@ -105,10 +105,13 @@ func (self proViews) Less(i, j int) bool {
 }
 
 type LuaState struct {
-	X     int                        //唯一标志
-	index int                        // heapidx
-	refs  map[int32]chan *LuaMessage // 有那些key共享这个LS
-	in    chan *LuaMessage
+	HeapRef int
+	HeapIdx int // heapidx
+
+	X int //唯一标志
+
+	refs map[int32]chan *LuaMessage // 有那些key共享这个LS
+	in   chan *LuaMessage
 
 	state *lua.LState
 	Msg   *LuaMessage // POP的消息

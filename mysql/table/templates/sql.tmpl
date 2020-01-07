@@ -1,5 +1,4 @@
 -- tbltool工具生成
-
 {{$t := .Tbl}}
 USE {{$t.DB}};
 -- MyISAM,InnoDB
@@ -19,6 +18,6 @@ ALTER TABLE `{{$t.Name}}` ADD COLUMN `{{$f.Name}}` {{ftype $f}} COMMENT '{{$f.De
 
 {{- range $f := .Fields}}
 {{- if isindex $f}}
-ALTER TABLE `{{$t.Name}}` ADD INDEX idx_{{$f.Name}}(`{{$f.Name}}`)
+ALTER TABLE `{{$t.Name}}` ADD INDEX idx_{{$f.Name}}(`{{$f.Name}}`);
 {{- end}}
 {{- end}}
