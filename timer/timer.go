@@ -222,8 +222,7 @@ func (self *TimerMgr) run() {
 		// step:3
 		if self.datas.Len() > 0 {
 			self.pop()
-		} else {
-			time.Sleep(time.Millisecond * self.acc)
 		}
+		time.Sleep(time.Millisecond * self.acc)
 	}
 }
