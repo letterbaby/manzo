@@ -17,6 +17,7 @@ const (
 type IAgent interface {
 	Start(net.Conn) // 启动
 	SendMsg(msg interface{}, to int32)
+	InnerMsg(msg interface{}, to int32)
 	Init(cfg *Config)
 }
 
@@ -177,7 +178,7 @@ func (self *Agent) Start(conn net.Conn) {
 func (self *Agent) runAgent() {
 	defer utils.CatchPanic()
 
-	tc := time.NewTicker(time.Second * TIMER_ACC)
+	tc := time.NewTicker(time.Millisecond * TIMER_ACC)
 	defer func() {
 		tc.Stop()
 
