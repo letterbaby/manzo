@@ -161,8 +161,8 @@ func (self *TcpClient) ping(die chan struct{}) {
 }
 
 func (self *TcpClient) Disconnect() {
+	logger.Info("TcpClient:close tcp:%v", self.addr)
 	// 停止重连
 	atomic.AddInt32(&self.autoReconnect, -1)
-	logger.Info("TcpClient:close tcp:%v", self.Conn)
 	self.Close()
 }

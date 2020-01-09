@@ -109,7 +109,6 @@ func (self *Agent) Close() bool {
 	case self.disconn <- true:
 		return true
 	default:
-		logger.Warning("Agent:Close conn:%v", self.Conn)
 	}
 	//close(self.disconn)
 	return false

@@ -185,7 +185,7 @@ func (self *{{upperfc $t.Name}}Data) GetData() []byte {
 	
 	pdata, err := proto.Marshal(tbl)
 	if err != nil {
-		logger.Error("{{upperfc $t.Name }}Data getdata:%v", err)
+		logger.Error("{{upperfc $t.Name }}Data:GetData i:%v", err)
 		return nil
 	}
 
@@ -193,10 +193,15 @@ func (self *{{upperfc $t.Name}}Data) GetData() []byte {
 }
 
 func (self *{{upperfc $t.Name}}Data) SetData(p []byte) {
+	if p == nil {
+		logger.Error("{{upperfc $t.Name }}Data:SetData p:nil")
+		return
+	}
+
 	tbl := &Tbl{}
 	err := proto.Unmarshal(p, tbl)
 	if err != nil {
-		logger.Error("{{upperfc $t.Name }}Data setdata:%v", err)
+		logger.Error("{{upperfc $t.Name }}Data:SetData i:%v", err)
 		return
 	}
 
