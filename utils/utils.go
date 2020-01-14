@@ -143,3 +143,15 @@ func DebugCall(f func(), to int64) {
 		}
 	}
 }
+
+// 多语言字符统计
+func GetStrWordLen(str string) int32 {
+	var j int32 = 0
+	for i := 0; i < len(str); i++ {
+		//不等于10开头就一定是一个单字符或者一个多字符
+		if (str[i] & 0xc0) != 0x80 {
+			j++
+		}
+	}
+	return j
+}
