@@ -26,8 +26,8 @@ type IDBCmd interface {
 type MySyncDBCmd struct {
 	w chan bool // 等待W
 
-	id  interface{} // int, string
-	sql string
+	Id  interface{} // int, string
+	Sql string
 
 	DbMgr *DBMgr
 }
@@ -44,8 +44,8 @@ func (self *MySyncDBCmd) Wait() bool {
 	select {
 	case <-self.w:
 		return true
-	case <-time.After(time.Second * 1):
-		logger.Warning("MySyncDBCmd:Wait id:%v,sql:%v", self.id, self.sql)
+	case <-time.After(time.Second * 2):
+		logger.Warning("MySyncDBCmd:Wait id:%v,sql:%v", self.Id, self.Sql)
 	}
 	return false
 }
@@ -287,7 +287,7 @@ func (self *DBMgr) AddReq(cmd IDBCmd, sync bool) bool {
 
 	clt := self.findClient(sn)
 	if clt == nil {
-		logger.Error("DBMgr:AddReq sn:%d,i:nil", sn)
+		logger.Error("DBMgr:AddReq sn:%d,i:%v", sn, cmd.Dump())
 		return false
 	}
 

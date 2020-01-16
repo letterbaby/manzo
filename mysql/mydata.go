@@ -62,11 +62,11 @@ func (self *uiCmd) Dump() string {
 // 取sn
 func (self *uiCmd) GetDBSn() int8 {
 	// int & string
-	switch self.id.(type) {
+	switch self.Id.(type) {
 	case int:
-		return int8(int32(self.id.(int)) % self.DbMgr.CltCount())
+		return int8(int32(self.Id.(int)) % self.DbMgr.CltCount())
 	case string:
-		return int8(int32(len(self.id.(string))) % self.DbMgr.CltCount())
+		return int8(int32(len(self.Id.(string))) % self.DbMgr.CltCount())
 	default:
 		return 0
 	}
@@ -76,16 +76,16 @@ func (self *uiCmd) GetDBSn() int8 {
 func (self *uiCmd) OnExcuteSql(clt *DBClient) {
 	self.ok = false
 
-	_, res, err := clt.ExcuteSql(self.sql)
+	_, res, err := clt.ExcuteSql(self.Sql)
 	if err != nil {
-		logger.Error("uiCmd:OnExcuteSql sql:%s,i:%v", self.sql, err)
+		logger.Error("uiCmd:OnExcuteSql sql:%s,i:%v", self.Sql, err)
 		return
 	}
 
 	if res.AffectedRows() > 0 {
 		self.ok = true
 	} else {
-		logger.Warning("uiCmd:OnExcuteSql sql:%s", self.sql)
+		logger.Warning("uiCmd:OnExcuteSql sql:%s", self.Sql)
 	}
 }
 
@@ -96,11 +96,11 @@ func (self *loadCmd) Dump() string {
 // 取sn
 func (self *loadCmd) GetDBSn() int8 {
 	// int & string
-	switch self.id.(type) {
+	switch self.Id.(type) {
 	case int:
-		return int8(int32(self.id.(int)) % self.DbMgr.CltCount())
+		return int8(int32(self.Id.(int)) % self.DbMgr.CltCount())
 	case string:
-		return int8(int32(len(self.id.(string))) % self.DbMgr.CltCount())
+		return int8(int32(len(self.Id.(string))) % self.DbMgr.CltCount())
 	default:
 		return 0
 	}
@@ -108,9 +108,9 @@ func (self *loadCmd) GetDBSn() int8 {
 
 // 取信息
 func (self *loadCmd) OnExcuteSql(clt *DBClient) {
-	rows, res, err := clt.ExcuteSql(self.sql)
+	rows, res, err := clt.ExcuteSql(self.Sql)
 	if err != nil {
-		logger.Error("loadCmd:OnExcuteSql sql:%s,i:%v", self.sql, err)
+		logger.Error("loadCmd:OnExcuteSql sql:%s,i:%v", self.Sql, err)
 		return
 	}
 
@@ -148,11 +148,11 @@ func (self *delCmd) Dump() string {
 // 取sn
 func (self *delCmd) GetDBSn() int8 {
 	// int & string
-	switch self.id.(type) {
+	switch self.Id.(type) {
 	case int:
-		return int8(int32(self.id.(int)) % self.DbMgr.CltCount())
+		return int8(int32(self.Id.(int)) % self.DbMgr.CltCount())
 	case string:
-		return int8(int32(len(self.id.(string))) % self.DbMgr.CltCount())
+		return int8(int32(len(self.Id.(string))) % self.DbMgr.CltCount())
 	default:
 		return 0
 	}
@@ -161,39 +161,39 @@ func (self *delCmd) GetDBSn() int8 {
 // 取信息
 func (self *delCmd) OnExcuteSql(clt *DBClient) {
 	self.ok = false
-	_, res, err := clt.ExcuteSql(self.sql)
+	_, res, err := clt.ExcuteSql(self.Sql)
 	if err != nil {
-		logger.Error("delCmd:OnExcuteSql sql:%s,i:%v", self.sql, err)
+		logger.Error("delCmd:OnExcuteSql sql:%s,i:%v", self.Sql, err)
 		return
 	}
 
 	if res.AffectedRows() > 0 {
 		self.ok = true
 	} else {
-		logger.Warning("delCmd:OnExcuteSql sql:%s", self.sql)
+		logger.Warning("delCmd:OnExcuteSql sql:%s", self.Sql)
 	}
 }
 
 func (self *MyData) NewUiCmd(sql string) *uiCmd {
 	uc := &uiCmd{}
-	uc.id = self.Id
-	uc.sql = sql
+	uc.Id = self.Id
+	uc.Sql = sql
 	uc.DbMgr = self.DbMgr
 	return uc
 }
 
 func (self *MyData) NewDelCmd(sql string) *delCmd {
 	dc := &delCmd{}
-	dc.id = self.Id
-	dc.sql = sql
+	dc.Id = self.Id
+	dc.Sql = sql
 	dc.DbMgr = self.DbMgr
 	return dc
 }
 
 func (self *MyData) NewLoadCmd(sql string) *loadCmd {
 	lc := &loadCmd{}
-	lc.id = self.Id
-	lc.sql = sql
+	lc.Id = self.Id
+	lc.Sql = sql
 	lc.cols = self.Cols
 	lc.DbMgr = self.DbMgr
 	return lc
