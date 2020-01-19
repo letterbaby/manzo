@@ -192,17 +192,17 @@ func (self *{{upperfc $t.Name}}Data) GetData() []byte {
 	return pdata
 }
 
-func (self *{{upperfc $t.Name}}Data) SetData(p []byte) {
+func (self *{{upperfc $t.Name}}Data) SetData(p []byte) bool {
 	if p == nil {
-		logger.Error("{{upperfc $t.Name }}Data:SetData p:nil")
-		return
+		//logger.Error("{{upperfc $t.Name }}Data:SetData p:nil")
+		return false
 	}
 
 	tbl := &Tbl{}
 	err := proto.Unmarshal(p, tbl)
 	if err != nil {
 		logger.Error("{{upperfc $t.Name }}Data:SetData i:%v", err)
-		return
+		return false
 	}
 
 {{- range $f := .Fields}}	
@@ -215,7 +215,8 @@ func (self *{{upperfc $t.Name}}Data) SetData(p []byte) {
 	//	self.Set{{upperfc $f.Name }}(tbl.Get{{upperfc $f.Name }}())
 	//}
 	{{- end}}
-{{- end}}	
+{{- end}}
+	return true
 }
 
 func (self *{{upperfc $t.Name}}Data) SetTbl(tbl *Tbl) {

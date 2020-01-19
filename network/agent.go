@@ -19,6 +19,7 @@ type IAgent interface {
 	SendMsg(msg interface{}, to int32)
 	InnerMsg(msg interface{}, to int32)
 	Init(cfg *Config)
+	GetGoroutineId() uint64
 }
 
 type Agent struct {
@@ -43,6 +44,8 @@ type Agent struct {
 	OnMessage  func(msg *RawMessage) *RawMessage
 	OnInnerMsg func(msg interface{})
 	OnTimer    func(d int64)
+
+	goroutineId uint64 // run线程ID
 }
 
 func NewAgent(cfg *Config) IAgent {
@@ -114,6 +117,10 @@ func (self *Agent) Close() bool {
 	return false
 }
 
+func (self *Agent) GetGoroutineId() uint64 {
+	return self.goroutineId
+}
+
 // 内部调用
 func (self *Agent) SetCloseFlag() {
 	self.flag |= SESS_KICKED_OUT
@@ -177,6 +184,8 @@ func (self *Agent) Start(conn net.Conn) {
 func (self *Agent) runAgent() {
 	defer utils.CatchPanic()
 
+	self.goroutineId = utils.GetGID()
+
 	tc := time.NewTicker(time.Millisecond * TIMER_ACC)
 	defer func() {
 		tc.Stop()
@@ -231,9 +240,7 @@ func (self *Agent) handIn(msg *RawMessage) *RawMessage {
 
 	var outmsg *RawMessage
 	if self.OnMessage != nil {
-		utils.DebugCall(func() {
-			outmsg = self.OnMessage(msg)
-		}, 10)
+		outmsg = self.OnMessage(msg)
 	}
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {
@@ -248,9 +255,7 @@ func (self *Agent) handInner(msg interface{}) {
 	now := time.Now()
 
 	if self.OnInnerMsg != nil {
-		utils.DebugCall(func() {
-			self.OnInnerMsg(msg)
-		}, 10)
+		self.OnInnerMsg(msg)
 	}
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {
