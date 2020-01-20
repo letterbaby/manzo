@@ -158,7 +158,7 @@ func GetStrWordLen(str string) int32 {
 }
 
 // 取携程id,goroutine 55 [running]:
-func GetGID() uint64 {
+func GetGoroutineId() uint64 {
 	b := make([]byte, 64)
 	b = b[:runtime.Stack(b, false)]
 	b = bytes.TrimPrefix(b, []byte("goroutine "))

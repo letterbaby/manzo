@@ -184,7 +184,7 @@ func (self *Agent) Start(conn net.Conn) {
 func (self *Agent) runAgent() {
 	defer utils.CatchPanic()
 
-	self.goroutineId = utils.GetGID()
+	self.goroutineId = utils.GetGoroutineId()
 
 	tc := time.NewTicker(time.Millisecond * TIMER_ACC)
 	defer func() {
