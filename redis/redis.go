@@ -16,6 +16,7 @@ type Config struct {
 	MaxActive     int      `json:"-"`
 	IdleTimeOut   int      `json:"-"`
 	Password      string   `json:"password"` // 密码
+	Dbase         string   `json:dbase`
 }
 
 var (
@@ -77,6 +78,8 @@ func (self *RedisCluster) Init(cfg *Config) {
 
 				return redis.Dial("tcp", addr,
 					redis.DialPassword(self.cfg.Password),
+					//集群模式下不支持selet
+					//redis.DialDatabase(self.cfg.Dbase),
 					redis.DialConnectTimeout(1*time.Second),
 					redis.DialReadTimeout(1*time.Second),
 					redis.DialWriteTimeout(1*time.Second))
@@ -113,7 +116,7 @@ func (self *RedisCluster) Do(cmd string, replicas bool, args ...interface{}) (in
 
 	var lastErr error
 	for i := 0; i < 2; i++ {
-		key := fmt.Sprintf("%v", args[0])
+		key := args[0].(string)
 		conn, err := self.cluster.getConnForSlot(slot(key), replicas)
 		if err != nil {
 			return nil, err
@@ -153,7 +156,21 @@ func (self *RedisCluster) RegScript(sh string, kc int, sc string) (err error) {
 	if ok {
 		return
 	}
-	self.scripts[sh] = redis.NewScript(kc, sc)
+
+	//conn, err := self.cluster.getConnForSlot(slot("loadscript"), false)
+	//if err != nil {
+	//	return err
+	//}
+	//defer conn.Close()
+
+	nsh := redis.NewScript(kc, sc)
+	//err = nsh.Load(conn)
+	//if err != nil {
+	//	return err
+	//}
+
+	self.scripts[sh] = nsh
+
 	return
 }
 
@@ -162,7 +179,7 @@ func (self *RedisCluster) RegScript(sh string, kc int, sc string) (err error) {
 2、确实有不同key可以用{}解决
 */
 func (self *RedisCluster) Script(sh string, args ...interface{}) (ret interface{}, err error) {
-	if len(args) < 1 {
+	if len(args) != 3 {
 		err = noArgsFound
 		logger.Error("RedisCluster:script msg:%v", args)
 	}
@@ -172,13 +189,14 @@ func (self *RedisCluster) Script(sh string, args ...interface{}) (ret interface{
 		return "", errNoNodeFound
 	}
 
-	conn, err := self.cluster.getConnForSlot(slot(args[0].(string)), false)
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	conn, err := self.cluster.getConnForSlot(slot(key), false)
 	if err != nil {
 		return "", err
 	}
 	defer conn.Close()
 
-	ret, err = script.Do(conn, args...)
+	ret, err = script.Do(conn, key, args[2])
 	if err != nil {
 		logger.Error("RedisCluster:script msg:%s,p:%v", err.Error(), args)
 	}
@@ -192,8 +210,8 @@ func (self *RedisCluster) Hgetall(args ...interface{}) (ret []interface{}, err e
 		logger.Error("RedisCluster:hgetall msg:%v", args)
 	}
 
-	ret, err = redis.Values(self.Do("HGETALL", args[0].(bool),
-		args[1].(string)+":"+args[2].(string)))
+	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
+	ret, err = redis.Values(self.Do("HGETALL", args[0].(bool), key))
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:hgetall msg:%s,p:%v", err.Error(), args)
 	}
@@ -209,8 +227,8 @@ func (self *RedisCluster) Hset(args ...interface{}) (err error) {
 		return
 	}
 
-	_, err = self.Do("HSET", false,
-		args[0].(string)+":"+args[1].(string), args[2], args[3])
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	_, err = self.Do("HSET", false, key, args[2], args[3])
 	if err != nil {
 		logger.Error("RedisCluster:hset msg:%s,p:%v", err.Error(), args)
 	}
@@ -226,8 +244,8 @@ func (self *RedisCluster) Hget(args ...interface{}) (ret interface{}, err error)
 		return
 	}
 
-	ret, err = self.Do("HGET", args[0].(bool),
-		args[1].(string)+":"+args[2].(string), args[3])
+	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
+	ret, err = self.Do("HGET", args[0].(bool), key, args[3])
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:hget msg:%s,p:%v", err.Error(), args)
 	}
@@ -242,8 +260,8 @@ func (self *RedisCluster) Expire(args ...interface{}) (err error) {
 		return
 	}
 
-	_, err = self.Do("EXPIRE", false,
-		args[0].(string)+":"+args[1].(string), args[2])
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	_, err = self.Do("EXPIRE", false, key, args[2])
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:expire msg:%s,p:%v", err.Error(), args)
 	}
@@ -258,8 +276,8 @@ func (self *RedisCluster) Incr(args ...interface{}) (ret int64, err error) {
 		return
 	}
 
-	ret, err = redis.Int64(self.Do("INCR", false,
-		args[0].(string)+":"+args[1].(string)))
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	ret, err = redis.Int64(self.Do("INCR", false, key))
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:incr msg:%s,p:%v", err.Error(), args)
 	}
@@ -274,8 +292,8 @@ func (self *RedisCluster) Set(args ...interface{}) (err error) {
 		return
 	}
 
-	_, err = self.Do("SET", false,
-		args[0].(string)+":"+args[1].(string), args[2])
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	_, err = self.Do("SET", false, key, args[2])
 	if err != nil {
 		logger.Error("RedisCluster:set msg:%s,p:%v", err.Error(), args)
 	}
@@ -290,8 +308,8 @@ func (self *RedisCluster) Get(args ...interface{}) (ret interface{}, err error) 
 		return
 	}
 
-	ret, err = self.Do("HGET", args[0].(bool),
-		args[1].(string)+":"+args[2].(string))
+	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
+	ret, err = self.Do("HGET", args[0].(bool), key)
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:get msg:%s,p:%v", err.Error(), args)
 	}
