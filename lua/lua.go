@@ -47,32 +47,28 @@ type Config struct {
 	MaxCount int `json:"maxcount"` // 虚拟机的数量
 }
 
-var (
-	LuaConfig = &Config{}
-)
-
 type Lua struct {
 	Lsh LSHeap
 	sync.Mutex
 }
 
-func NewLua(loadlibs func(s *lua.LState)) *Lua {
+func NewLua(cfg *Config, loadlibs func(s *lua.LState)) *Lua {
 	lua := &Lua{}
-	lua.Init(loadlibs)
+	lua.Init(cfg, loadlibs)
 	return lua
 }
 
-func (self *Lua) Init(loadlibs func(s *lua.LState)) {
-	if LuaConfig.MaxCount <= 0 {
-		LuaConfig.MaxCount = 1
+func (self *Lua) Init(cfg *Config, loadlibs func(s *lua.LState)) {
+	if cfg.MaxCount <= 0 {
+		cfg.MaxCount = 1
 		logger.Warning("Lua:init MaxCount <= 0 defalut 1")
 	}
 
-	self.Lsh = make(LSHeap, LuaConfig.MaxCount)
+	self.Lsh = make(LSHeap, cfg.MaxCount)
 
 	wg := sync.WaitGroup{}
-	wg.Add(LuaConfig.MaxCount)
-	for i := 0; i < LuaConfig.MaxCount; i++ {
+	wg.Add(cfg.MaxCount)
+	for i := 0; i < cfg.MaxCount; i++ {
 		go func(x int) {
 			defer utils.CatchPanic()
 

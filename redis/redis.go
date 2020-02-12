@@ -2,7 +2,6 @@ package redis
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/letterbaby/manzo/logger"

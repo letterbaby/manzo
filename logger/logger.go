@@ -54,10 +54,6 @@ type Config struct {
 	Level    int32  `json:"level"` // 日志等级
 }
 
-var (
-	LoggerConfig = &Config{}
-)
-
 type Handler interface {
 	//init(classify Level, cfg *Config)
 
@@ -332,54 +328,64 @@ var (
 	logger = &Logger{}
 )
 
-func Start(cfgPath string) {
+func loadCfg(cfgPath string) *Config {
 	// 解析文件标准文件
+	cfg := &Config{}
+
 	fi, err := os.Open(cfgPath)
 	if err != nil {
-
+		return cfg
 	}
 	defer fi.Close()
 	data, err := ioutil.ReadAll(fi)
 	if err != nil {
+		return cfg
 	}
 
-	err = json.Unmarshal(data, LoggerConfig)
+	err = json.Unmarshal(data, cfg)
 	if err != nil {
 		//??
+		return cfg
 	}
 
-	if LoggerConfig.Level <= 0 {
-		LoggerConfig.Level = 1
+	return cfg
+}
+
+func Start(cfgPath string) {
+	cfg := loadCfg(cfgPath)
+
+	if cfg.Level <= 0 {
+		cfg.Level = 1
 	}
 
-	if !LoggerConfig.Console && !LoggerConfig.File {
-		LoggerConfig.Console = true
+	if !cfg.Console && !cfg.File {
+		cfg.Console = true
 	}
 
-	logger.level = Level(LoggerConfig.Level)
+	logger.level = Level(cfg.Level)
 	logger.handlers = make([]Handler, 0)
 
-	if LoggerConfig.Console {
+	if cfg.Console {
 		h := NewConsoleHandler(&Config{})
 		logger.handlers = append(logger.handlers, h)
 	}
 
-	if LoggerConfig.File {
+	if cfg.File {
 		var h Handler
-		if LoggerConfig.Classify {
+		if cfg.Classify {
 			for i := logger.level; i < XEND; i++ {
-				if LoggerConfig.Rotating {
-					h = NewRotatingHandler(i, LoggerConfig)
+				if cfg.Rotating {
+					h = NewRotatingHandler(i, cfg)
 				} else {
-					h = NewFileHandler(i, LoggerConfig)
+					h = NewFileHandler(i, cfg)
 				}
 				logger.handlers = append(logger.handlers, h)
 			}
 		} else {
-			if LoggerConfig.Rotating {
-				h = NewRotatingHandler(Level(0), LoggerConfig)
+			if cfg.Rotating {
+				h = NewRotatingHandler(Level(0), cfg)
 			} else {
-				h = NewFileHandler(Level(0), LoggerConfig)
+				h = NewFileHandler(Level(0), cfg)
 			}
 			logger.handlers = append(logger.handlers, h)
 		}
