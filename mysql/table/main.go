@@ -14,7 +14,7 @@ import (
 
 	"github.com/letterbaby/manzo/logger"
 
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 
 	"github.com/letterbaby/manzo/utils"
 )
