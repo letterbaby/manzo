@@ -166,3 +166,10 @@ func GetGoroutineId() uint64 {
 	n, _ := strconv.ParseUint(string(b), 10, 64)
 	return n
 }
+
+// Md5Byte 获取字节数组md5值
+func Md5String(s string) string {
+	h := md5.New()
+	h.Write([]byte(s))
+	return hex.EncodeToString(h.Sum(nil))
+}

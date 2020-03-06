@@ -57,9 +57,9 @@ func (self *limitListener) Accept() (net.Conn, error) {
 	return &limitListenerConn{Conn: c, Release: self.release, Now: time.Now()}, nil
 }
 
-func HttpLimitListenTimeOut(addr string, max int) error {
+func HttpLimitListenTimeOut(addr string, max int, handler http.Handler) error {
 	if max <= 0 {
-		server := &http.Server{Addr: addr, Handler: nil,
+		server := &http.Server{Addr: addr, Handler: handler,
 			ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second}
 		server.SetKeepAlivesEnabled(false)
 		return server.ListenAndServe()
@@ -70,7 +70,7 @@ func HttpLimitListenTimeOut(addr string, max int) error {
 		}
 		defer lis.Close()
 		lis = &limitListener{Listener: lis, MaxCount: max}
-		server := &http.Server{Addr: addr, Handler: nil,
+		server := &http.Server{Addr: addr, Handler: handler,
 			ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second}
 		server.SetKeepAlivesEnabled(false)
 		return server.Serve(lis)
