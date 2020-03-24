@@ -3,6 +3,8 @@ package signal
 import (
 	"os"
 	"os/signal"
+
+	"github.com/letterbaby/manzo/logger"
 )
 
 type fhandler func(s os.Signal)
@@ -16,10 +18,9 @@ var (
 	c          = make(chan os.Signal)
 )
 
-func (self *signalHandler) init(sigs *[]os.Signal, h fhandler) {
-
+func (self *signalHandler) init(sigs []os.Signal, h fhandler) {
 	self.handlers = make(map[os.Signal]fhandler)
-	for _, sig := range *sigs {
+	for _, sig := range sigs {
 		self.handlers[sig] = h
 	}
 }
@@ -43,8 +44,7 @@ func Watch(sigs []os.Signal, h fhandler) {
 	}
 }
 
-/*
-func Watch(sigs *[]os.Signal, h fhandler) {
+func WatchEx(sigs []os.Signal, h fhandler) {
 	sighandler.init(sigs, h)
 
 	//接受信号通知
@@ -58,4 +58,4 @@ func Watch(sigs *[]os.Signal, h fhandler) {
 			logger.Warning("Unknown handler signal: %v", sig)
 		}
 	}
-}*/
+}
