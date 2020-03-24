@@ -308,7 +308,7 @@ func (self *RedisCluster) Get(args ...interface{}) (ret interface{}, err error) 
 	}
 
 	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
-	ret, err = self.Do("HGET", args[0].(bool), key)
+	ret, err = self.Do("GET", args[0].(bool), key)
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:get msg:%s,p:%v", err.Error(), args)
 	}
