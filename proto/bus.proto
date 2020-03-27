@@ -25,20 +25,20 @@ message Ping
 
 message RegSvrInfo
 {
-	int64 srcId  = 1;
-	int64 destId = 2;
+	NewSvrInfo src =1;
+	NewSvrInfo dest =2;
 }
 
 message NewSvrInfo
 {
-	int64 destId =1;
-	string ip=2;
+	int64 Id =1;
+	string ip=2; //同时作为服务存在
 	string port = 3;
 }
 
 message DelSvrInfo
 {
-	int64 destId =1;
+	int64 Id =1;
 }
 
 message RouteInfo

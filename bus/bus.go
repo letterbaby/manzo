@@ -13,11 +13,12 @@ import (
 )
 
 type BusDataCall func(msg *network.RawMessage) *network.RawMessage
-type BusRegCall func(id int64, flag int64)
+type BusRegCall func(svr *NewSvrInfo, flag int64)
 type BusNewCall func(id int64) bool
 
 type Config struct {
-	SvrId int64 // 服务器ID
+	//SvrId int64 // 服务器ID
+	SvrInfo *NewSvrInfo
 
 	Parser network.IMessage
 
@@ -48,22 +49,26 @@ func init() {
 
 // TODO:路线管理，支持3站或以上路由，最短路径
 type BusClient struct {
+	Id int64
+
 	sync.RWMutex
 
 	network.TcpClient
 
-	Id     int64
 	seqId  uint32
 	caller map[uint32]chan *network.RawMessage
 
 	mgr *BusClientMgr
+
+	dest *NewSvrInfo
 }
 
 func newBusClient(sinfo *NewSvrInfo, mgr *BusClientMgr) *BusClient {
 	client := &BusClient{}
 
-	client.Id = sinfo.DestId
+	client.Id = sinfo.Id
 	client.mgr = mgr
+	client.dest = sinfo
 
 	cfg := &network.Config{}
 	cfg.ServerAddress = sinfo.Ip + ":" + sinfo.Port
@@ -240,22 +245,22 @@ func (self *BusClientMgr) init(cfg *Config) {
 }
 
 func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
-	if !self.cfg.OnNewBus(sinfo.DestId) {
+	if !self.cfg.OnNewBus(sinfo.Id) {
 		return
 	}
 
 	self.Lock()
 	defer self.Unlock()
 
-	_, ok, _ := self.buss.Get(sinfo.DestId)
+	_, ok, _ := self.buss.Get(sinfo.Id)
 	if ok {
-		logger.Error("BusClientMgr:NewBusClient id:%v", sinfo.DestId)
+		logger.Error("BusClientMgr:NewBusClient id:%v", sinfo.Id)
 		return
 	}
 
 	clt := newBusClient(sinfo, self)
 
-	self.buss.Add(clt.Id, clt)
+	self.buss.Add(sinfo.Id, clt)
 
 	// 异步链接
 	go func() {
@@ -268,16 +273,16 @@ func (self *BusClientMgr) DelBus(sinfo *DelSvrInfo) {
 	self.Lock()
 	defer self.Unlock()
 
-	logger.Info("BusClientMgr:DelBus id:%v,s:%v", sinfo.DestId,
-		GetServerIdStr(sinfo.DestId))
+	logger.Info("BusClientMgr:DelBus id:%v,s:%v", sinfo.Id,
+		GetServerIdStr(sinfo.Id))
 
-	v, ok, _ := self.buss.Get(sinfo.DestId)
+	v, ok, _ := self.buss.Get(sinfo.Id)
 	if !ok {
 		//logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
 		return
 	}
 
-	self.buss.Del(sinfo.DestId)
+	self.buss.Del(sinfo.Id)
 	v.(*BusClient).Disconnect()
 }
 
@@ -293,26 +298,26 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 	}
 
 	if self.cfg.OnBusReg != nil {
-		self.cfg.OnBusReg(clt.Id, 0)
+		self.cfg.OnBusReg(clt.dest, 0)
 	}
 }
 
-func (self *BusClientMgr) regBusOk(id int64) {
-	logger.Info("BusClientMgr:regBusOk id:%v,s:%v", id,
-		GetServerIdStr(id))
+func (self *BusClientMgr) regBusOk(info *NewSvrInfo) {
+	logger.Info("BusClientMgr:regBusOk id:%v,s:%v", info.Id,
+		GetServerIdStr(info.Id))
 
 	self.RLock()
-	v, ok, _ := self.buss.Get(id)
+	v, ok, _ := self.buss.Get(info.Id)
 	self.RUnlock()
 
 	if !ok {
-		logger.Error("BusClientMgr:BusOk id:%v", id)
+		logger.Error("BusClientMgr:BusOk id:%v", info.Id)
 		return
 	}
 	v.(*BusClient).SetAuthed(true)
 
 	if self.cfg.OnBusReg != nil {
-		self.cfg.OnBusReg(id, 1)
+		self.cfg.OnBusReg(info, 1)
 	}
 }
 
@@ -333,8 +338,8 @@ func (self *BusClientMgr) OnMount(clt *BusClient) {
 	msg.Code = Cmd_REG_SVR
 
 	msg.SvrInfo = &RegSvrInfo{}
-	msg.SvrInfo.SrcId = self.cfg.SvrId
-	msg.SvrInfo.DestId = clt.Id
+	msg.SvrInfo.Src = self.cfg.SvrInfo
+	msg.SvrInfo.Dest = clt.dest
 	rmsg := NewBusRawMessage(msg)
 	clt.SendData(rmsg, false, 1)
 }
@@ -343,7 +348,7 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 	msgdata := msg.MsgData.(*CommonMessage)
 
 	if msgdata.Code == Cmd_REG_SVR {
-		self.regBusOk(msgdata.SvrInfo.DestId)
+		self.regBusOk(msgdata.SvrInfo.Dest)
 	} else if msgdata.Code == Cmd_NEW_SVR {
 		self.RegBus(msgdata.NewSvrInfo)
 	} else if msgdata.Code == Cmd_DEL_SVR {
@@ -455,6 +460,8 @@ type BusServer struct {
 
 	OnDisconnect func()
 	OnData       BusDataCall
+
+	dest *NewSvrInfo
 }
 
 func (self *BusServer) Initx(cfg *network.Config, mgr *BusServerMgr) {
@@ -500,16 +507,17 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 	req := msg.SvrInfo
 
 	logger.Debug("BusServer:RegSvr con:%v,id:%v,s:%v", self.Conn,
-		req.SrcId, GetServerIdStr(req.SrcId))
+		req.Src.Id, GetServerIdStr(req.Src.Id))
 
-	if !self.Mgr.AddSvr(req.SrcId, self) {
+	if !self.Mgr.AddSvr(req.Src, self) {
 		// !
 		self.Close()
 		return
 	}
 
+	self.dest = req.Src
 	// 绑定id
-	self.Id = req.SrcId
+	self.Id = req.Src.Id
 	self.Authed = true
 	// 少序列化点数据
 	//msg.SvrInfo = nil
@@ -529,9 +537,9 @@ func (self *BusServer) RecvRouteMsg(msg *network.RawMessage) {
 	msgdata := msg.MsgData.(*CommonMessage)
 	req := msgdata.RouteInfo
 
-	if IsSameWorldFuncId(req.DestSvr, self.Mgr.cfg.SvrId) {
+	if IsSameWorldFuncId(req.DestSvr, self.Mgr.cfg.SvrInfo.Id) {
 		if GetServerLogicId(req.DestSvr) == 0 ||
-			GetServerLogicId(req.DestSvr) == GetServerLogicId(self.Mgr.cfg.SvrId) {
+			GetServerLogicId(req.DestSvr) == GetServerLogicId(self.Mgr.cfg.SvrInfo.Id) {
 			if self.OnData != nil {
 				rmsg := NewRouteRawMessageIn(msg, self.Mgr.cfg.Parser)
 				if rmsg != nil {
@@ -570,19 +578,24 @@ func (self *BusServerMgr) init(cfg *Config) {
 	self.servers = make(map[int64]*BusServer, 0)
 }
 
-func (self *BusServerMgr) AddSvr(id int64, svr *BusServer) bool {
+func (self *BusServerMgr) AddSvr(info *NewSvrInfo, svr *BusServer) bool {
 	self.Lock()
 	defer self.Unlock()
 
-	logger.Info("BusServerMgr:AddSvr id:%v,s:%s", id, GetServerIdStr(id))
+	logger.Info("BusServerMgr:AddSvr id:%v,s:%s", info.Id, GetServerIdStr(info.Id))
 
-	_, ok := self.servers[id]
+	_, ok := self.servers[info.Id]
 	if ok {
-		logger.Error("BusServerMgr:AddSvr id:%v", id)
+		logger.Error("BusServerMgr:AddSvr id:%v", info.Id)
 		return false
 	}
 
-	self.servers[id] = svr
+	self.servers[info.Id] = svr
+
+	if self.cfg.OnBusReg != nil {
+		self.cfg.OnBusReg(info, 1)
+	}
+
 	return true
 }
 
@@ -592,13 +605,17 @@ func (self *BusServerMgr) DelSvr(id int64) {
 
 	logger.Info("BusServerMgr:DelSvr id:%v,s:%s", id, GetServerIdStr(id))
 
-	_, ok := self.servers[id]
+	svr, ok := self.servers[id]
 	if !ok {
 		logger.Error("BusServerMgr:DelSvr id:%v", id)
 		return
 	}
 
 	delete(self.servers, id)
+
+	if self.cfg.OnBusReg != nil {
+		self.cfg.OnBusReg(svr.dest, 0)
+	}
 }
 
 func (self *BusServerMgr) GetServersById(id int64) []*BusServer {
@@ -643,7 +660,7 @@ func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
 	msg := &CommonMessage{}
 	msg.Code = Cmd_NEW_SVR
 	msg.NewSvrInfo = &NewSvrInfo{}
-	msg.NewSvrInfo.DestId = id
+	msg.NewSvrInfo.Id = id
 	msg.NewSvrInfo.Ip = ip
 	msg.NewSvrInfo.Port = port
 
@@ -656,7 +673,7 @@ func (self *BusServerMgr) DelServer(id int64) {
 	msg := &CommonMessage{}
 	msg.Code = Cmd_DEL_SVR
 	msg.DelSvrInfo = &DelSvrInfo{}
-	msg.DelSvrInfo.DestId = id
+	msg.DelSvrInfo.Id = id
 
 	rmsg := NewBusRawMessage(msg)
 
