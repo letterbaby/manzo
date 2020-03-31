@@ -66,9 +66,21 @@ func (self *ProtoMessage) Serialize(msg *RawMessage) (*Buffer, error) {
 		return nil, fmt.Errorf("ProtoMessage:ser msg:%v", msg)
 	}
 
-	data, err := proto.Marshal(msg.MsgData.(proto.Message))
-	if err != nil {
-		return nil, err
+	var data []byte
+	_, ok := msg.MsgData.(proto.Message)
+	if ok {
+		pd, err := proto.Marshal(msg.MsgData.(proto.Message))
+		if err != nil {
+			return nil, err
+		}
+		data = pd
+	} else {
+		// Hook透传的[]byte??
+		pd, ok := msg.MsgData.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("ProtoMessage:ser msg:%v", msg)
+		}
+		data = pd
 	}
 
 	if self.OnSerialized != nil {
