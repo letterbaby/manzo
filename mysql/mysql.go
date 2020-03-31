@@ -13,7 +13,7 @@ import (
 )
 
 type IDBCmd interface {
-	GetDBSn() int8
+	GetDBSn(cnt int32) int8
 	//OnExcute() // 异步发送消息用
 	OnExcuteSql(clt *DBClient)
 	Dump() string
@@ -28,8 +28,6 @@ type MySyncDBCmd struct {
 
 	Id  interface{} // int, string
 	Sql string
-
-	DbMgr *DBMgr
 }
 
 func (self *MySyncDBCmd) GetW() chan bool {
@@ -224,6 +222,10 @@ func (self *DBClient) Escape(v string) string {
 	return self.conn.Escape(v)
 }
 
+func (self *DBClient) Begin() (mysql.Transaction, error) {
+	return self.conn.Begin()
+}
+
 //-------------------------------------
 // 数据访问管理器
 type DBMgr struct {
@@ -283,7 +285,7 @@ func (self *DBMgr) AddReq(cmd IDBCmd, sync bool) bool {
 		return false
 	}
 
-	sn := cmd.GetDBSn()
+	sn := cmd.GetDBSn(self.CltCount())
 
 	clt := self.findClient(sn)
 	if clt == nil {
