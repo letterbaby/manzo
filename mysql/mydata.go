@@ -266,16 +266,16 @@ func (self *MyData) Save(sync bool, force bool) {
 	self.Dirty = false
 }
 
-func (self *MyData) SaveFiled(filed string, sync bool) {
+func (self *MyData) SaveFiled(field string, sync bool) {
 	if !self.Dirty {
 		return
 	}
 
-	if filed == "id" || filed == self.IdName {
+	if field == "id" || field == self.IdName {
 		return
 	}
 
-	v, ok := self.Cols[filed]
+	v, ok := self.Cols[field]
 	if !ok {
 		return
 	}
@@ -287,7 +287,7 @@ func (self *MyData) SaveFiled(filed string, sync bool) {
 
 	var str string
 
-	str = str + "`" + filed + "`"
+	str = str + "`" + field + "`"
 
 	// int & string
 	switch v.Data.(type) {
@@ -472,20 +472,20 @@ func (self *MyData) Load() int32 {
 	return lc.ret
 }
 
-func (self *MyData) GetInt(filed string) int {
-	v, ok := self.Cols[filed]
+func (self *MyData) GetInt(field string) int {
+	v, ok := self.Cols[field]
 	if !ok {
-		logger.Error("MyData:GetInt filed:%v", filed)
+		logger.Error("MyData:GetInt field:%v", field)
 		return 0
 	}
 
 	return v.Data.(int)
 }
 
-func (self *MyData) SetInt(filed string, nv int) {
-	v, ok := self.Cols[filed]
+func (self *MyData) SetInt(field string, nv int) {
+	v, ok := self.Cols[field]
 	if !ok {
-		logger.Error("MyData:SetInt filed:%v", filed)
+		logger.Error("MyData:SetInt field:%v", field)
 		return
 	}
 
@@ -493,27 +493,27 @@ func (self *MyData) SetInt(filed string, nv int) {
 		return
 	}
 
-	//logger.Debug("User id:%v, Dirty filed:%s, old:%v, new:%v", self.Id, filed, v, nv)
+	//logger.Debug("User id:%v, Dirty field:%s, old:%v, new:%v", self.Id, field, v, nv)
 
 	v.Dirty = true
-	self.Cols[filed].Data = nv
+	self.Cols[field].Data = nv
 	self.Dirty = true
 }
 
-func (self *MyData) GetStr(filed string) string {
-	v, ok := self.Cols[filed]
+func (self *MyData) GetStr(field string) string {
+	v, ok := self.Cols[field]
 	if !ok {
-		logger.Error("MyData:GetStr filed:%v", filed)
+		logger.Error("MyData:GetStr field:%v", field)
 		return ""
 	}
 
 	return v.Data.(string)
 }
 
-func (self *MyData) SetStr(filed string, nv string) {
-	v, ok := self.Cols[filed]
+func (self *MyData) SetStr(field string, nv string) {
+	v, ok := self.Cols[field]
 	if !ok {
-		logger.Error("MyData:SetStr filed:%v", filed)
+		logger.Error("MyData:SetStr field:%v", field)
 		return
 	}
 
@@ -521,8 +521,8 @@ func (self *MyData) SetStr(filed string, nv string) {
 		return
 	}
 
-	//logger.Debug("User id:%v, Dirty filed:%s, old:%v, new:%v", self.Id, filed, v, nv)
+	//logger.Debug("User id:%v, Dirty field:%s, old:%v, new:%v", self.Id, field, v, nv)
 	v.Dirty = true
-	self.Cols[filed].Data = nv
+	self.Cols[field].Data = nv
 	self.Dirty = true
 }

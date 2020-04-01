@@ -216,7 +216,7 @@ func (self *{{upperfc $t.Name}}Data) SetData(p []byte) bool {
 	//}
 	{{- end}}
 {{- end}}
-	return true
+	return self.Dirty
 }
 
 func (self *{{upperfc $t.Name}}Data) SetTbl(tbl *Tbl) {
