@@ -85,7 +85,7 @@ func GetWorldFuncId(id int64) int64 {
 func IsSameWorldFuncId(sid int64, did int64) bool {
 	sw, sf, _ := GetServerId(sid)
 	dw, df, _ := GetServerId(did)
-	return sw == dw && sf == df
+	return (sw == 0 || sw == dw) && (sf == 0 || sf == df)
 }
 
 func NewBusRawMessage(msg *CommonMessage) *network.RawMessage {

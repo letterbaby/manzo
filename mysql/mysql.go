@@ -64,14 +64,16 @@ type Config struct {
 }
 
 type DBClient struct {
-	sn    int8       // 连接序号
-	conn  mysql.Conn // mymysql连接
-	disc  bool       // 连接是否断开
-	dbmgr *DBMgr     // 数据库管理器
+	sn   int8       // 连接序号
+	conn mysql.Conn // mymysql连接
+
+	dbmgr *DBMgr // 数据库管理器
 
 	pending chan IDBCmd
 	dbterm  chan bool      // 数据执行退出信号
 	dbwt    sync.WaitGroup // 数据安全等待锁
+
+	disc bool // 假定有错都是连接断开
 }
 
 // 客户端初始化
@@ -120,24 +122,47 @@ func (self *DBClient) check() error {
 
 	logger.Warning("DBClient:check Reconnect...")
 
-	/*
-		err := self.conn.Ping()
-		if err == nil {
-			return nil
-		}
-	*/
-
 	now := time.Now().Unix()
 	err := self.conn.Reconnect()
-	if err == nil {
-		self.disc = false
-		return nil
-	}
-	logger.Error("DBClient:check sn:%d,i:%v", self.sn, err)
+	if err != nil {
+		logger.Error("DBClient:check sn:%d,i:%v", self.sn, err)
 
-	st := time.Duration((time.Now().Unix() - now))
-	time.Sleep(time.Second * (dbtimeout - st))
-	return err
+		st := time.Duration((time.Now().Unix() - now))
+		time.Sleep(time.Second * (dbtimeout - st))
+		return err
+	}
+
+	self.disc = false
+	return nil
+}
+
+func (self *DBClient) tryExcute(cmd IDBCmd) {
+	defer utils.CatchPanic()
+
+	excute := func() bool {
+		// 执行
+		cmd.OnExcuteSql(self)
+
+		if !self.disc {
+			return true
+		}
+
+		logger.Warning("DBClient:tryExcute Reconnect...")
+		err := self.conn.Reconnect()
+		if err != nil {
+			logger.Error("DBClient:tryExcute sn:%d,i:%v", self.sn, err)
+			return true
+		}
+
+		self.disc = false
+		return false
+	}
+
+	for i := 0; i < 2; i++ {
+		if excute() {
+			break
+		}
+	}
 }
 
 // 数据执行线程
@@ -164,7 +189,7 @@ func (self *DBClient) run() {
 				return
 			}
 
-			cmd.OnExcuteSql(self)
+			self.tryExcute(cmd)
 			self.dbmgr.addRep(cmd)
 		}
 	}
@@ -186,7 +211,7 @@ func (self *DBClient) close() {
 			break
 		}
 
-		cmd.OnExcuteSql(self)
+		self.tryExcute(cmd)
 		self.dbmgr.addRep(cmd)
 	}
 	// step2:关闭连接
@@ -196,34 +221,52 @@ func (self *DBClient) close() {
 // 执行数据库查询,兼容一次重连
 func (self *DBClient) ExcuteSql(sql string) ([]mysql.Row, mysql.Result, error) {
 	rows, res, err := self.conn.Query(sql)
-	if err == nil {
-		return rows, res, err
-	}
-
-	// 重连一次
-	err = self.conn.Reconnect()
 	if err != nil {
 		self.disc = true
-		return nil, nil, err
-	}
-
-	rows, res, err = self.conn.Query(sql)
-	if err == nil {
 		return rows, res, err
 	}
 
-	// 连接断开了
-	self.disc = true
-	return nil, nil, err
+	return rows, res, nil
+}
+
+func (self *DBClient) ExcuteSqls(sqls []string) error {
+	tr, err := self.conn.Begin()
+	if err != nil {
+		self.disc = true
+		return err
+	}
+
+	query := func(sql string) error {
+		_, _, err := tr.Query(sql)
+		if err != nil {
+			err2 := tr.Rollback()
+			if err2 != nil {
+				logger.Error("DBClient:ExcuteSqls s:%v,e:%v", sql, err2)
+			}
+			return err
+		}
+		return nil
+	}
+
+	for _, v := range sqls {
+		err := query(v)
+		if err != nil {
+			self.disc = true
+			return err
+		}
+	}
+
+	err = tr.Commit()
+	if err != nil {
+		self.disc = true
+		return err
+	}
+	return nil
 }
 
 // mysql_real_escape_string
 func (self *DBClient) Escape(v string) string {
 	return self.conn.Escape(v)
-}
-
-func (self *DBClient) Begin() (mysql.Transaction, error) {
-	return self.conn.Begin()
 }
 
 //-------------------------------------
