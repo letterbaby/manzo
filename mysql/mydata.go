@@ -72,6 +72,10 @@ func (self *uiCmd) GetDBSn(cnt int32) int8 {
 	}
 }
 
+// DB执行完成
+func (self *uiCmd) OnExcute() {
+}
+
 // 取信息
 func (self *uiCmd) OnExcuteSql(clt *DBClient) {
 	self.ok = false
@@ -104,6 +108,10 @@ func (self *loadCmd) GetDBSn(cnt int32) int8 {
 	default:
 		return 0
 	}
+}
+
+// DB执行完成
+func (self *loadCmd) OnExcute() {
 }
 
 // 取信息
@@ -156,6 +164,10 @@ func (self *delCmd) GetDBSn(cnt int32) int8 {
 	default:
 		return 0
 	}
+}
+
+// DB执行完成
+func (self *delCmd) OnExcute() {
 }
 
 // 取信息

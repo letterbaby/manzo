@@ -14,7 +14,7 @@ import (
 
 type IDBCmd interface {
 	GetDBSn(cnt int32) int8
-	//OnExcute() // 异步发送消息用
+	OnExcute() // 异步发送消息用
 	OnExcuteSql(clt *DBClient)
 	Dump() string
 
@@ -289,6 +289,8 @@ func NewDBMgr(cfg *Config) *DBMgr {
 func (self *DBMgr) init(cfg *Config) {
 	self.dbterm = make(chan bool)
 
+	// clts * cmd_size?
+	self.pending = make(chan IDBCmd, cmd_size*2)
 	self.clts = make(map[int8]*DBClient)
 
 	for i := int32(0); i < cfg.Count; i++ {
@@ -296,6 +298,9 @@ func (self *DBMgr) init(cfg *Config) {
 		clt.init(int8(i), cfg, self)
 		self.clts[int8(i)] = clt
 	}
+
+	self.dbwt.Add(1)
+	go self.run()
 }
 
 func (self *DBMgr) CltCount() int32 {
@@ -308,6 +313,12 @@ func (self *DBMgr) addRep(cmd IDBCmd) {
 	w := cmd.GetW()
 	if w != nil {
 		w <- true
+	} else {
+		select {
+		case self.pending <- cmd:
+		default:
+			logger.Warning("DBMgr:addRep d:%v", cmd.Dump())
+		}
 	}
 }
 
@@ -352,6 +363,28 @@ func (self *DBMgr) AddReq(cmd IDBCmd, sync bool) bool {
 	return true
 }
 
+// 数据执行线程
+func (self *DBMgr) run() {
+	defer utils.CatchPanic()
+	defer self.dbwt.Done()
+
+	for {
+		// step1:被动退出
+		select {
+		case <-self.dbterm:
+			return
+
+		case cmd, ok := <-self.pending:
+			if !ok {
+				logger.Error("DBMgr pending <-")
+				return
+			}
+
+			cmd.OnExcute()
+		}
+	}
+}
+
 // 被动关闭, 注意数据完整性
 func (self *DBMgr) Close() {
 	// step1:等待数据访问退出
@@ -361,6 +394,20 @@ func (self *DBMgr) Close() {
 
 	close(self.dbterm)
 	self.dbwt.Wait()
+
+	n := len(self.pending)
+	//logger.Debug("DBMgr close:%v", n)
+
+	// step2:数据完整性
+	for i := 0; i < n; i++ {
+
+		cmd, ok := <-self.pending
+		if !ok {
+			break
+		}
+
+		cmd.OnExcute()
+	}
 }
 
 func (self *DBMgr) Escape(v string) string {
