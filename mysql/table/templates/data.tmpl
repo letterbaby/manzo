@@ -60,7 +60,10 @@ func Init(tbln string, dbops *mysql.MyOps) {
 	dbops.CreateTable("InnoDB", 10000, "{{$t.Des}}", idlst, idxlst, prmlst)
 
 {{- range $f := .Fields}}
-	dbops.AlertField("{{$f.Name}}", "{{ftype $f}}", "{{$f.Des}}", {{- if intx $f.Protot}} {{$f.Default}} {{- else}} "" {{- end}}, {{blob $f.Dbt}})
+	dbops.AlertField("{{$f.Name}}", "{{ftype $f}}", "{{$f.Des}}",
+	 {{- if int32x $f.Protot}} int32({{$f.Default}})
+	  {{- else if int64x $f.Protot}} int64({{$f.Default}})
+	   {{- else}} "" {{- end}}, {{blob $f.Dbt}})
 {{- end}}
 
 	{{- range $f := .Fields}}
@@ -99,8 +102,8 @@ func cd(id interface{}, tbln string, dbmgr *mysql.DBMgr)*{{upperfc $t.Name}}Data
 	return data
 }
 
-func CreateData(id int32, tbln string, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
-	return cd(int(id), tbln, dbmgr)
+func CreateData(id int64, tbln string, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
+	return cd(id, tbln, dbmgr)
 }
 
 func CreateDataEx(id string, tbln string, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
@@ -128,8 +131,8 @@ func ld(id interface{}, tbln string, create bool, dbmgr *mysql.DBMgr) *{{upperfc
 	return data
 }
 
-func LoadData(id int32, tbln string, create bool, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
-	return ld(int(id), tbln, create, dbmgr)
+func LoadData(id int64, tbln string, create bool, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
+	return ld(id, tbln, create, dbmgr)
 }
 
 func LoadDataEx(id string, tbln string, create bool, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
@@ -156,8 +159,8 @@ func dd(id interface{}, tbln string, auto bool, dbmgr *mysql.DBMgr) *{{upperfc $
 	return data
 }
 
-func DelData(id int32, tbln string, auto bool, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
-	return dd(int(id), tbln, auto, dbmgr)
+func DelData(id int64, tbln string, auto bool, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
+	return dd(id, tbln, auto, dbmgr)
 }
 
 func DelDataEx(id string, tbln string, auto bool, dbmgr *mysql.DBMgr) *{{upperfc $t.Name}}Data {
@@ -168,11 +171,17 @@ func (self *{{upperfc $t.Name}}Data) GetData() []byte {
 	tbl := &Tbl{}
 	
 {{- range $f := .Fields}}	
-	{{- if intx $f.Protot}}
+	{{- if int32x $f.Protot}}
 	{{- if protor $f.Protorw}}
 	tbl.{{upperfc $f.Name }} = proto.Int32(self.Get{{upperfc $f.Name}}())
 	{{- else}}
 	//tbl.{{upperfc $f.Name }} = proto.Int32(self.Get{{upperfc $f.Name}}())
+	{{- end}}
+	{{- else if int64x $f.Protot}}
+	{{- if protor $f.Protorw}}
+	tbl.{{upperfc $f.Name }} = proto.Int64(self.Get{{upperfc $f.Name}}())
+	{{- else}}
+	//tbl.{{upperfc $f.Name }} = proto.Int64(self.Get{{upperfc $f.Name}}())
 	{{- end}}
 	{{- else}}
 	{{- if protor $f.Protorw}}
@@ -242,9 +251,12 @@ func (self *{{upperfc $t.Name}}Data) SetValues(rd map[string]string) {
 		switch k {
 		{{- range $f := .Fields}}
 		case "{{$f.Name}}":
-			{{- if intx $f.Protot}}
+			{{- if int32x $f.Protot}}
 			d, _ := strconv.Atoi(v)
 			self.Set{{upperfc $f.Name}}(int32(d))
+			{{- else if int64x $f.Protot}}
+			d, _ := strconv.Atoi(v)
+			self.Set{{upperfc $f.Name}}(int64(d))
 			{{- else}}
 			self.Set{{upperfc $f.Name}}(v)
 			{{- end}}
@@ -277,16 +289,27 @@ func (self *{{upperfc $t.Name}}Data) GetValues() [][]string {
 
 // 属性的get{}, set{}
 {{- range $f := .Fields}}	
-	{{- if intx $f.Protot}}
+	{{- if int32x $f.Protot}}
 
 func (self *{{upperfc $t.Name}}Data) Get{{upperfc $f.Name}}() int32 {
-	return int32(self.GetInt("{{$f.Name}}"))
+	return self.GetInt32("{{$f.Name}}")
 }
 
 func (self *{{upperfc $t.Name}}Data) Set{{upperfc $f.Name}}(v int32) int {
-	self.SetInt("{{$f.Name}}", int(v))
+	self.SetInt32("{{$f.Name}}", v)
 	return {{$f.Id}} - 1
 }
+	{{- else if int64x $f.Protot}}
+
+func (self *{{upperfc $t.Name}}Data) Get{{upperfc $f.Name}}() int64 {
+	return self.GetInt64("{{$f.Name}}")
+}
+
+func (self *{{upperfc $t.Name}}Data) Set{{upperfc $f.Name}}(v int64) int {
+	self.SetInt64("{{$f.Name}}", v)
+	return {{$f.Id}} - 1
+}
+
 	{{- else}}
 
 func (self *{{upperfc $t.Name}}Data) Get{{upperfc $f.Name}}() string {

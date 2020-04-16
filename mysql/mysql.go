@@ -26,7 +26,7 @@ type IDBCmd interface {
 type MySyncDBCmd struct {
 	w chan bool // 等待W
 
-	Id  interface{} // int, string
+	Id  interface{} // int64, string
 	Sql string
 }
 
@@ -46,6 +46,19 @@ func (self *MySyncDBCmd) Wait() bool {
 		logger.Warning("MySyncDBCmd:Wait id:%v,sql:%v", self.Id, self.Sql)
 	}
 	return false
+}
+
+// 取sn
+func (self *MySyncDBCmd) GetDBSn(cnt int32) int8 {
+	// int64 & string
+	switch self.Id.(type) {
+	case int64:
+		return int8(self.Id.(int64) % int64(cnt))
+	case string:
+		return int8(int32(len(self.Id.(string))) % cnt)
+	default:
+		return 0
+	}
 }
 
 // mysql连接,重连超时

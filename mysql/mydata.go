@@ -8,7 +8,7 @@ import (
 	"github.com/letterbaby/manzo/logger"
 )
 
-// 支持int,string(bin)
+// 支持int32, int64, string(bin)
 type MyFiled struct {
 	Data  interface{}
 	Bin   bool // 是不是2进制字段 TODO:[]byte{}
@@ -16,7 +16,7 @@ type MyFiled struct {
 }
 
 type MyData struct {
-	Id        interface{} // int, string
+	Id        interface{} // int64, string
 	IdName    string
 	TableName string
 
@@ -59,19 +59,6 @@ func (self *uiCmd) Dump() string {
 	return fmt.Sprintf("uiCmd:Dump i:%v", self)
 }
 
-// 取sn
-func (self *uiCmd) GetDBSn(cnt int32) int8 {
-	// int & string
-	switch self.Id.(type) {
-	case int:
-		return int8(int32(self.Id.(int)) % cnt)
-	case string:
-		return int8(int32(len(self.Id.(string))) % cnt)
-	default:
-		return 0
-	}
-}
-
 // DB执行完成
 func (self *uiCmd) OnExcute() {
 }
@@ -97,19 +84,6 @@ func (self *loadCmd) Dump() string {
 	return ""
 }
 
-// 取sn
-func (self *loadCmd) GetDBSn(cnt int32) int8 {
-	// int & string
-	switch self.Id.(type) {
-	case int:
-		return int8(int32(self.Id.(int)) % cnt)
-	case string:
-		return int8(int32(len(self.Id.(string))) % cnt)
-	default:
-		return 0
-	}
-}
-
 // DB执行完成
 func (self *loadCmd) OnExcute() {
 }
@@ -126,11 +100,12 @@ func (self *loadCmd) OnExcuteSql(clt *DBClient) {
 		// 赋值v
 		for k, v := range self.cols {
 			col := res.Map(k)
-
-			// int & string
+			// int32 & int64 & string
 			switch v.Data.(type) {
-			case int:
-				self.cols[k].Data = rows[0].Int(col)
+			case int32:
+				self.cols[k].Data = int32(rows[0].Int(col))
+			case int64:
+				self.cols[k].Data = rows[0].Int64(col)
 			case string:
 				if v.Bin {
 					self.cols[k].Data = string(rows[0].Bin(col))
@@ -151,19 +126,6 @@ func (self *loadCmd) OnExcuteSql(clt *DBClient) {
 
 func (self *delCmd) Dump() string {
 	return fmt.Sprintf("delCmd:Dump i:%v", self)
-}
-
-// 取sn
-func (self *delCmd) GetDBSn(cnt int32) int8 {
-	// int & string
-	switch self.Id.(type) {
-	case int:
-		return int8(int32(self.Id.(int)) % cnt)
-	case string:
-		return int8(int32(len(self.Id.(string))) % cnt)
-	default:
-		return 0
-	}
 }
 
 // DB执行完成
@@ -233,10 +195,13 @@ func (self *MyData) Save(sync bool, force bool) {
 
 		str = str + "`" + k + "`"
 
-		// int & string
+		// int32 & int64 & string
 		switch v.Data.(type) {
-		case int:
-			str = str + "=" + strconv.Itoa(v.Data.(int))
+		case int32:
+			// FormatInt
+			str = str + "=" + strconv.Itoa(int(v.Data.(int32)))
+		case int64:
+			str = str + "=" + strconv.Itoa(int(v.Data.(int64)))
 		case string:
 			vv := v.Data.(string)
 			if v.Bin {
@@ -255,10 +220,10 @@ func (self *MyData) Save(sync bool, force bool) {
 
 	ssql := ""
 
-	// int & string
+	// int64 & string
 	switch self.Id.(type) {
-	case int:
-		ssql = fmt.Sprintf("update `%s` set %s where `%s` = %d", self.TableName, str, self.IdName, self.Id.(int))
+	case int64:
+		ssql = fmt.Sprintf("update `%s` set %s where `%s` = %d", self.TableName, str, self.IdName, self.Id.(int64))
 	case string:
 		ssql = fmt.Sprintf("update `%s` set %s where `%s` = '%s'", self.TableName, str, self.IdName, self.Id.(string))
 	default:
@@ -301,10 +266,13 @@ func (self *MyData) SaveFiled(field string, sync bool) {
 
 	str = str + "`" + field + "`"
 
-	// int & string
+	// int32 & int64 & string
 	switch v.Data.(type) {
-	case int:
-		str = str + "=" + strconv.Itoa(v.Data.(int))
+	case int32:
+		// FormatInt
+		str = str + "=" + strconv.Itoa(int(v.Data.(int32)))
+	case int64:
+		str = str + "=" + strconv.Itoa(int(v.Data.(int64)))
 	case string:
 		vv := v.Data.(string)
 		if v.Bin {
@@ -321,10 +289,10 @@ func (self *MyData) SaveFiled(field string, sync bool) {
 	}
 
 	ssql := ""
-	// int & string
+	// int64 & string
 	switch self.Id.(type) {
-	case int:
-		ssql = fmt.Sprintf("update `%s` set %s where `%s` = %d", self.TableName, str, self.IdName, self.Id.(int))
+	case int64:
+		ssql = fmt.Sprintf("update `%s` set %s where `%s` = %d", self.TableName, str, self.IdName, self.Id.(int64))
 	case string:
 		ssql = fmt.Sprintf("update `%s` set %s where `%s` = '%s'", self.TableName, str, self.IdName, self.Id.(string))
 	default:
@@ -347,10 +315,11 @@ func (self *MyData) SaveFiled(field string, sync bool) {
 // create
 func (self *MyData) Create() bool {
 	ssql := ""
-	// int & string
+
+	// int64 & string
 	switch self.Id.(type) {
-	case int:
-		ssql = fmt.Sprintf("insert into `%s`(`%s`) values(%d)", self.TableName, self.IdName, self.Id.(int))
+	case int64:
+		ssql = fmt.Sprintf("insert into `%s`(`%s`) values(%d)", self.TableName, self.IdName, self.Id.(int64))
 	case string:
 		ssql = fmt.Sprintf("insert into `%s`(`%s`) values('%s')", self.TableName, self.IdName, self.Id.(string))
 	default:
@@ -371,10 +340,10 @@ func (self *MyData) Create() bool {
 
 func (self *MyData) Delete(sync bool) bool {
 	ssql := ""
-	// int & string
+	// int64 & string
 	switch self.Id.(type) {
-	case int:
-		ssql = fmt.Sprintf("delete from `%s` where `%s`=%d", self.TableName, self.IdName, self.Id.(int))
+	case int64:
+		ssql = fmt.Sprintf("delete from `%s` where `%s`=%d", self.TableName, self.IdName, self.Id.(int64))
 	case string:
 		ssql = fmt.Sprintf("delete from `%s` where `%s`='%s'", self.TableName, self.IdName, self.Id.(string))
 	default:
@@ -423,10 +392,13 @@ func (self *MyData) Insert(sync bool) bool {
 			val = val + ","
 		}
 
-		// int & string
+		// int32 & int64 & string
 		switch v.Data.(type) {
-		case int:
-			val = val + strconv.Itoa(v.Data.(int))
+		case int32:
+			// FormatInt
+			val = val + strconv.Itoa(int(v.Data.(int32)))
+		case int64:
+			val = val + strconv.Itoa(int(v.Data.(int64)))
 		case string:
 			vv := v.Data.(string)
 			if v.Bin {
@@ -464,10 +436,10 @@ func (self *MyData) Insert(sync bool) bool {
 // 有可能数据库断开，不代表没有数据
 func (self *MyData) Load() int32 {
 	ssql := ""
-	// int & string
+	// int64 & string
 	switch self.Id.(type) {
-	case int:
-		ssql = fmt.Sprintf("select * from `%s` where `%s`=%d", self.TableName, self.IdName, self.Id.(int))
+	case int64:
+		ssql = fmt.Sprintf("select * from `%s` where `%s`=%d", self.TableName, self.IdName, self.Id.(int64))
 	case string:
 		ssql = fmt.Sprintf("select * from `%s` where `%s`='%s'", self.TableName, self.IdName, self.Id.(string))
 	default:
@@ -484,24 +456,52 @@ func (self *MyData) Load() int32 {
 	return lc.ret
 }
 
-func (self *MyData) GetInt(field string) int {
+func (self *MyData) GetInt32(field string) int32 {
 	v, ok := self.Cols[field]
 	if !ok {
-		logger.Error("MyData:GetInt field:%v", field)
+		logger.Error("MyData:GetInt32 field:%v", field)
 		return 0
 	}
 
-	return v.Data.(int)
+	return v.Data.(int32)
 }
 
-func (self *MyData) SetInt(field string, nv int) {
+func (self *MyData) SetInt32(field string, nv int32) {
 	v, ok := self.Cols[field]
 	if !ok {
-		logger.Error("MyData:SetInt field:%v", field)
+		logger.Error("MyData:SetInt32 field:%v", field)
 		return
 	}
 
-	if v.Data.(int) == nv {
+	if v.Data.(int32) == nv {
+		return
+	}
+
+	//logger.Debug("User id:%v, Dirty field:%s, old:%v, new:%v", self.Id, field, v, nv)
+
+	v.Dirty = true
+	self.Cols[field].Data = nv
+	self.Dirty = true
+}
+
+func (self *MyData) GetInt64(field string) int64 {
+	v, ok := self.Cols[field]
+	if !ok {
+		logger.Error("MyData:GetInt64 field:%v", field)
+		return 0
+	}
+
+	return v.Data.(int64)
+}
+
+func (self *MyData) SetInt64(field string, nv int64) {
+	v, ok := self.Cols[field]
+	if !ok {
+		logger.Error("MyData:SetInt64 field:%v", field)
+		return
+	}
+
+	if v.Data.(int64) == nv {
 		return
 	}
 

@@ -234,7 +234,21 @@ func ftype(fld *field_info) string {
 }
 
 func intx(str string) bool {
+	if str == "int32" || str == "int64" {
+		return true
+	}
+	return false
+}
+
+func int32x(str string) bool {
 	if str == "int32" {
+		return true
+	}
+	return false
+}
+
+func int64x(str string) bool {
+	if str == "int64" {
 		return true
 	}
 	return false
@@ -272,6 +286,8 @@ func isprm(f *field_info) bool {
 }
 
 func main() {
+	logger.Start("")
+
 	app := cli.NewApp()
 	app.Name = "Protocol Data Structure Generator"
 	app.Usage = "tbltool -f=*.md -po=./*.proto -do=./*.go"
@@ -330,6 +346,8 @@ func main() {
 			"upperfc": upperfc,
 			"ftype":   ftype,
 			"intx":    intx,
+			"int32x":  int32x,
+			"int64x":  int64x,
 			"protor":  protor,
 			"protow":  protow,
 			"blob":    blob,
@@ -375,7 +393,6 @@ func main() {
 			logger.Error("%v", err)
 			return nil
 		}
-
 		return nil
 	}
 	app.Run(os.Args)
