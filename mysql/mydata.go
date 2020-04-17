@@ -99,6 +99,10 @@ func (self *loadCmd) OnExcuteSql(clt *DBClient) {
 	if len(rows) > 0 {
 		// 赋值v
 		for k, v := range self.cols {
+			if k == "id" {
+				continue
+			}
+
 			col := res.Map(k)
 			// int32 & int64 & string
 			switch v.Data.(type) {
@@ -113,7 +117,7 @@ func (self *loadCmd) OnExcuteSql(clt *DBClient) {
 					self.cols[k].Data = rows[0].Str(col)
 				}
 			default:
-				logger.Error("loadCmd:OnExcuteSql i:Unknow deal data type")
+				logger.Error("loadCmd:OnExcuteSql i:%v", k)
 			}
 		}
 		self.ret = Ret_data
@@ -209,7 +213,7 @@ func (self *MyData) Save(sync bool, force bool) {
 			}
 			str = str + "='" + vv + "'"
 		default:
-			logger.Error("MyData:Save i:Unknow deal data type")
+			logger.Error("MyData:Save i:%v", k)
 		}
 	}
 
@@ -280,7 +284,7 @@ func (self *MyData) SaveFiled(field string, sync bool) {
 		}
 		str = str + "='" + vv + "'"
 	default:
-		logger.Error("MyData:SaveFiled i:Unknow deal data type")
+		logger.Error("MyData:SaveFiled i:%v", field)
 	}
 
 	if len(str) == 0 {
@@ -406,7 +410,7 @@ func (self *MyData) Insert(sync bool) bool {
 			}
 			val = val + "'" + vv + "'"
 		default:
-			logger.Error("MyData:Insert i:Unknow deal data type")
+			logger.Error("MyData:Insert i:%v", k)
 		}
 	}
 
