@@ -52,7 +52,7 @@ func LoadFile(fileName string) ([]byte, error) {
 }
 
 func HttpRequest(url string, postStr string,
-	headParam map[string]interface{}, method string) (int, []byte, error) {
+	headParam map[string]interface{}, method string, to int32) (int, []byte, error) {
 
 	request, err := http.NewRequest(method, url, bytes.NewBufferString(postStr))
 	if err != nil {
@@ -62,7 +62,7 @@ func HttpRequest(url string, postStr string,
 	//request.Header.Add("Connection", "close")
 
 	client := &http.Client{
-		Timeout: time.Second * 5,
+		Timeout: time.Second * time.Duration(to),
 	}
 
 	// set https
