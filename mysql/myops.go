@@ -11,6 +11,11 @@ import (
 	_ "github.com/ziutek/mymysql/thrsafe"
 )
 
+var (
+	// 没有宏!!只有启动用到if
+	ALERT_FIELD = "0000" // 采用 -ldflags "-X mysql.ALERT_FIELD=1111"
+)
+
 // 创建表工具
 type MyOps struct {
 	conn mysql.Conn // mymysql连接
@@ -128,21 +133,46 @@ func (self *MyOps) CreateTable(engine string, autoid int, comment string,
 
 // 增加表字段
 func (self *MyOps) AlertField(field string, ftype string, comment string, dv interface{}, bin bool) bool {
-
 	f, ok := self.cols[field]
-	if !ok {
+
+	if ALERT_FIELD == "1111" {
+		mod := ""
+		if ok {
+			mod = " MODIFY "
+		} else {
+			mod = " ADD COLUMN "
+		}
+
+		sql := fmt.Sprintf("ALTER TABLE `%s` %s %s %s COMMENT '%s'", self.tbl, mod, field, ftype, comment)
+		_, _, err := self.ExcuteSql(sql)
+		if err != nil {
+			logger.Fatal("MyOps:AlertField i:%v", err)
+		}
+
+		self.cols[field] = &MyFiled{Data: dv, Bin: bin}
+
+		return false
+	} else if !ok {
 		logger.Fatal("MyOps:AlertField field:%v,cmt:%v", field, comment)
 		return false
 	}
 
+	// TODO: 验证数据库字段类型
 	f.Data = dv
 	f.Bin = bin
-
 	return true
 }
 
 // 增加字段索引
 func (self *MyOps) AddIndexKey(ftype string) {
+	if ALERT_FIELD == "1111" {
+		sql := fmt.Sprintf("ALTER TABLE `%s` %s", self.tbl, ftype)
+		_, _, err := self.ExcuteSql(sql)
+		if err != nil {
+			//logger.Error("MyOps:AddIndexKey %v", err)
+			//logger.Info("AddIndexKey sql:%v", sql)
+		}
+	}
 }
 
 // 加载数据
