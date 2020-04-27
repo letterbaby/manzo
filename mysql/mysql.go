@@ -107,7 +107,7 @@ func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 	// 尝试连接mysql
 	err := self.conn.Connect()
 	if err != nil {
-		logger.Fatal("DBClient:init cfg:%v", cfg)
+		logger.Fatal("DBClient:init sn:%v,cfg:%v", self.sn, cfg)
 	}
 
 	self.dbwt.Add(1)
@@ -120,7 +120,7 @@ func (self *DBClient) addReq(cmd IDBCmd) bool {
 	select {
 	case self.pending <- cmd:
 	default:
-		logger.Warning("DBClient:addReq d:%v", cmd.Dump())
+		logger.Warning("DBClient:addReq sn:%v,d:%v", self.sn, cmd.Dump())
 		return false
 	}
 
@@ -133,7 +133,7 @@ func (self *DBClient) check() error {
 		return nil
 	}
 
-	logger.Warning("DBClient:check Reconnect...")
+	logger.Warning("DBClient:check sn:%v,isc:%v", self.sn, self.conn.IsConnected())
 
 	now := time.Now().Unix()
 	err := self.conn.Reconnect()
@@ -153,21 +153,22 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 	defer utils.CatchPanic()
 
 	excute := func() bool {
-
 		ok := utils.CallByTimeOut(func() {
 			cmd.OnExcuteSql(self)
 		}, 5)
 
 		if !ok {
+			logger.Error("DBClient:tryExcute sn:%v,dis:%v,isc:%v",
+				self.sn, self.disc, self.conn.IsConnected())
 			self.disc = true
 		}
 		// 执行
-
 		if !self.disc {
 			return true
 		}
 
-		logger.Warning("DBClient:tryExcute Reconnect...")
+		logger.Warning("DBClient:tryExcute sn:%v,dis:%v,isc:%v",
+			self.sn, self.disc, self.conn.IsConnected())
 		err := self.conn.Reconnect()
 		if err != nil {
 			logger.Error("DBClient:tryExcute sn:%d,i:%v", self.sn, err)
@@ -178,7 +179,7 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		return false
 	}
 
-	logger.Debug("DBClient:tryExcute id:%v,dis:%v,isc:%v,cmd:%v",
+	logger.Debug("DBClient:tryExcute sn:%v,dis:%v,isc:%v,cmd:%v",
 		self.sn, self.disc, self.conn.IsConnected(), cmd)
 
 	now := time.Now()
@@ -189,7 +190,8 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		}
 	}
 
-	logger.Debug("DBClient:tryExcute id:%v,tt:%v", self.sn, time.Now().Sub(now))
+	logger.Debug("DBClient:tryExcute sn:%v,dis:%v,isc:%v,tt:%v",
+		self.sn, self.disc, self.conn.IsConnected(), time.Now().Sub(now))
 }
 
 // 数据执行线程
@@ -212,7 +214,7 @@ func (self *DBClient) run() {
 
 		case cmd, ok := <-self.pending:
 			if !ok {
-				logger.Error("DBClient:check pending <-")
+				logger.Error("DBClient:run sn:%v,pending <-", self.sn)
 				return
 			}
 
@@ -268,7 +270,7 @@ func (self *DBClient) ExcuteSqls(sqls []string) error {
 		if err != nil {
 			err2 := tr.Rollback()
 			if err2 != nil {
-				logger.Error("DBClient:ExcuteSqls s:%v,e:%v", sql, err2)
+				logger.Error("DBClient:ExcuteSqls sn:%v,sql:%v,i:%v", self.sn, sql, err2)
 			}
 			return err
 		}
@@ -403,7 +405,7 @@ func (self *DBMgr) run() {
 
 		case cmd, ok := <-self.pending:
 			if !ok {
-				logger.Error("DBMgr pending <-")
+				logger.Error("DBMgr:run pending <-")
 				return
 			}
 
