@@ -31,7 +31,8 @@ type Agent struct {
 	inner   chan interface{} // 内部消息队列
 	disconn chan bool
 
-	flag              int32         // 会话标记
+	flag int32 // 会话标记
+	// sync.Once die1 die2?
 	die1              chan struct{} // 会话关闭信号
 	die2              chan struct{} // 会话关闭信号
 	Authed            bool          // 认证过了

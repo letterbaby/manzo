@@ -232,7 +232,7 @@ func NewBusClientMgr(cfg *Config) *BusClientMgr {
 }
 
 func (self *BusClientMgr) init(cfg *Config) {
-	parser := network.NewProtocParser()
+	parser := network.NewProtocParser(-1)
 	parser.Register(uint16(Cmd_NONE), CommonMessage{})
 	self.parser = parser
 
@@ -570,7 +570,7 @@ func NewBusServerMgr(cfg *Config) *BusServerMgr {
 }
 
 func (self *BusServerMgr) init(cfg *Config) {
-	parser := network.NewProtocParser()
+	parser := network.NewProtocParser(-1)
 	parser.Register(uint16(Cmd_NONE), CommonMessage{})
 	self.parser = parser
 

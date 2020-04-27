@@ -35,17 +35,19 @@ type SerializedCall func([]byte, interface{})
 type ProtoMessage struct {
 	msgMap map[uint16]reflect.Type // id池：主要用于识别id对应的结构
 
+	zip int // -1:不压0:压,>0条件压
 	// Hook
 	OnSerialized SerializedCall
 }
 
-func NewProtocParser() IMessage {
+func NewProtocParser(zip int) IMessage {
 	pm := &ProtoMessage{}
-	pm.init()
+	pm.init(zip)
 	return pm
 }
 
-func (self *ProtoMessage) init() {
+func (self *ProtoMessage) init(zip int) {
+	self.zip = zip
 	self.msgMap = make(map[uint16]reflect.Type)
 }
 
@@ -89,25 +91,43 @@ func (self *ProtoMessage) Serialize(msg *RawMessage) (*Buffer, error) {
 
 	zip := byte(0)
 	var buff []byte
+	azip := func() error {
+		var out bytes.Buffer
+		zlibw, err := zlib.NewWriterLevel(&out, zlib.BestCompression)
+		if err != nil {
+			return err
+		}
 
-	var out bytes.Buffer
-	zlibw, err := zlib.NewWriterLevel(&out, zlib.BestCompression)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = zlibw.Write(data)
-	if err != nil {
+		_, err = zlibw.Write(data)
+		if err != nil {
+			zlibw.Close()
+			return err
+		}
 		zlibw.Close()
-		return nil, err
-	}
-	zlibw.Close()
-	buff = out.Bytes()
+		buff = out.Bytes()
 
-	if len(buff) < len(data) {
-		zip = 1
-	} else {
+		if len(buff) < len(data) {
+			zip = 1
+		} else {
+			buff = data
+		}
+		return nil
+	}
+
+	if self.zip <= -1 {
 		buff = data
+	} else if self.zip == 0 {
+		err := azip()
+		if err != nil {
+			return nil, err
+		}
+	} else if len(data) < self.zip {
+		buff = data
+	} else {
+		err := azip()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// 长度+消息序号+消息id+压缩标志+包长
