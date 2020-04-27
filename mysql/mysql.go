@@ -153,8 +153,15 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 	defer utils.CatchPanic()
 
 	excute := func() bool {
+
+		ok := utils.CallByTimeOut(func() {
+			cmd.OnExcuteSql(self)
+		}, 5)
+
+		if !ok {
+			self.disc = true
+		}
 		// 执行
-		cmd.OnExcuteSql(self)
 
 		if !self.disc {
 			return true
@@ -171,11 +178,18 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		return false
 	}
 
+	logger.Debug("DBClient:tryExcute id:%v,dis:%v,isc:%v,cmd:%v",
+		self.sn, self.disc, self.conn.IsConnected(), cmd)
+
+	now := time.Now()
+
 	for i := 0; i < 2; i++ {
 		if excute() {
 			break
 		}
 	}
+
+	logger.Debug("DBClient:tryExcute id:%v,tt:%v", self.sn, time.Now().Sub(now))
 }
 
 // 数据执行线程

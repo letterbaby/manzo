@@ -129,21 +129,19 @@ func ASyncWait(f func() bool) {
 	wg.Wait()
 }
 
-func DebugCall(f func(), to int64) {
-	if DEBUG_CALL == 0 {
+func CallByTimeOut(f func(), to int64) bool {
+	ch := make(chan byte, 1)
+	go func() {
 		f()
-	} else {
-		ch := make(chan byte, 1)
-		go func() {
-			f()
-			ch <- 1
-		}()
+		ch <- 1
+	}()
 
-		select {
-		case <-ch:
-		case <-time.After(time.Second * time.Duration(to)):
-			panic("DebugCall")
-		}
+	select {
+	case <-ch:
+		return true
+	case <-time.After(time.Second * time.Duration(to)):
+		//panic("DebugCall")
+		return false
 	}
 }
 
