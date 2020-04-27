@@ -121,6 +121,7 @@ func ASyncWait(f func() bool) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
+		defer CatchPanic()
 		defer wg.Done()
 		for !f() {
 			time.Sleep(time.Second * 1)
@@ -132,6 +133,7 @@ func ASyncWait(f func() bool) {
 func CallByTimeOut(f func(), to int64) bool {
 	ch := make(chan byte, 1)
 	go func() {
+		defer CatchPanic()
 		f()
 		ch <- 1
 	}()
