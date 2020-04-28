@@ -13,6 +13,8 @@ import (
 )
 
 type IDBCmd interface {
+	GetSN() int8
+
 	GetDBSn(cnt int32) int8
 	OnExcute() // 异步发送消息用
 	OnExcuteSql(clt *DBClient)
@@ -24,10 +26,16 @@ type IDBCmd interface {
 }
 
 type MySyncDBCmd struct {
+	SN int8
+
 	w chan bool // 等待W
 
 	Id  interface{} // int64, string
 	Sql string
+}
+
+func (self *MySyncDBCmd) GetSN() int8 {
+	return self.SN
 }
 
 func (self *MySyncDBCmd) GetW() chan bool {
@@ -43,7 +51,7 @@ func (self *MySyncDBCmd) Wait() bool {
 	case <-self.w:
 		return true
 	case <-time.After(time.Second * 2):
-		logger.Warning("MySyncDBCmd:Wait id:%v,sql:%v", self.Id, self.Sql)
+		logger.Warning("MySyncDBCmd:Wait id:%v,sql:%v,sn:%v", self.Id, self.Sql, self.SN)
 	}
 	return false
 }
@@ -51,14 +59,15 @@ func (self *MySyncDBCmd) Wait() bool {
 // 取sn
 func (self *MySyncDBCmd) GetDBSn(cnt int32) int8 {
 	// int64 & string
+	self.SN = 0
 	switch self.Id.(type) {
 	case int64:
-		return int8(self.Id.(int64) % int64(cnt))
+		self.SN = int8(self.Id.(int64) % int64(cnt))
 	case string:
-		return int8(int32(len(self.Id.(string))) % cnt)
+		self.SN = int8(int32(len(self.Id.(string))) % cnt)
 	default:
-		return 0
 	}
+	return self.SN
 }
 
 // mysql连接,重连超时
@@ -87,12 +96,15 @@ type DBClient struct {
 	dbwt    sync.WaitGroup // 数据安全等待锁
 
 	disc bool // 假定有错都是连接断开
+
+	cfg *Config
 }
 
 // 客户端初始化
 func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 	self.dbterm = make(chan bool)
 
+	self.cfg = cfg
 	self.sn = sn
 	self.dbmgr = dbmgr
 
@@ -107,7 +119,7 @@ func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 	// 尝试连接mysql
 	err := self.conn.Connect()
 	if err != nil {
-		logger.Fatal("DBClient:init sn:%v,cfg:%v", self.sn, cfg)
+		logger.Fatal("DBClient:init sn:%v,db:%v,cfg:%v", self.sn, self.cfg.Dbase, cfg)
 	}
 
 	self.dbwt.Add(1)
@@ -119,12 +131,11 @@ func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 func (self *DBClient) addReq(cmd IDBCmd) bool {
 	select {
 	case self.pending <- cmd:
+		return true
 	default:
-		logger.Warning("DBClient:addReq sn:%v,d:%v", self.sn, cmd.Dump())
-		return false
+		logger.Warning("DBClient:addReq sn:%v,db:%v,d:%v", self.sn, self.cfg.Dbase, cmd.Dump())
 	}
-
-	return true
+	return false
 }
 
 // 数据库连接检查+重连
@@ -133,12 +144,12 @@ func (self *DBClient) check() error {
 		return nil
 	}
 
-	logger.Warning("DBClient:check sn:%v,isc:%v", self.sn, self.conn.IsConnected())
+	logger.Warning("DBClient:check sn:%v,db:%v,isc:%v", self.sn, self.cfg.Dbase, self.conn.IsConnected())
 
 	now := time.Now().Unix()
 	err := self.conn.Reconnect()
 	if err != nil {
-		logger.Error("DBClient:check sn:%d,i:%v", self.sn, err)
+		logger.Error("DBClient:check sn:%d,db:%v,i:%v", self.sn, self.cfg.Dbase, err)
 
 		st := time.Duration((time.Now().Unix() - now))
 		time.Sleep(time.Second * (dbtimeout - st))
@@ -152,14 +163,17 @@ func (self *DBClient) check() error {
 func (self *DBClient) tryExcute(cmd IDBCmd) {
 	defer utils.CatchPanic()
 
+	//logger.Debug("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v,cmd:%v",
+	//	self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected(), cmd)
+
 	excute := func() bool {
 		ok := utils.CallByTimeOut(func() {
 			cmd.OnExcuteSql(self)
 		}, 5)
 
 		if !ok {
-			logger.Error("DBClient:tryExcute sn:%v,dis:%v,isc:%v",
-				self.sn, self.disc, self.conn.IsConnected())
+			logger.Error("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v",
+				self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected())
 			self.disc = true
 		}
 		// 执行
@@ -167,11 +181,11 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 			return true
 		}
 
-		logger.Warning("DBClient:tryExcute sn:%v,dis:%v,isc:%v",
-			self.sn, self.disc, self.conn.IsConnected())
+		logger.Warning("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v",
+			self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected())
 		err := self.conn.Reconnect()
 		if err != nil {
-			logger.Error("DBClient:tryExcute sn:%d,i:%v", self.sn, err)
+			logger.Error("DBClient:tryExcute sn:%d,db:%v,i:%v", self.sn, self.cfg.Dbase, err)
 			return true
 		}
 
@@ -179,10 +193,7 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		return false
 	}
 
-	logger.Debug("DBClient:tryExcute sn:%v,dis:%v,isc:%v,cmd:%v",
-		self.sn, self.disc, self.conn.IsConnected(), cmd)
-
-	now := time.Now()
+	//now := time.Now()
 
 	for i := 0; i < 2; i++ {
 		if excute() {
@@ -190,8 +201,8 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		}
 	}
 
-	logger.Debug("DBClient:tryExcute sn:%v,dis:%v,isc:%v,tt:%v",
-		self.sn, self.disc, self.conn.IsConnected(), time.Now().Sub(now))
+	//logger.Debug("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v,tt:%v",
+	//	self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected(), time.Now().Sub(now))
 }
 
 // 数据执行线程
@@ -214,7 +225,7 @@ func (self *DBClient) run() {
 
 		case cmd, ok := <-self.pending:
 			if !ok {
-				logger.Error("DBClient:run sn:%v,pending <-", self.sn)
+				logger.Error("DBClient:run sn:%v,db:%v,pending <-", self.sn, self.cfg.Dbase)
 				return
 			}
 
@@ -270,7 +281,7 @@ func (self *DBClient) ExcuteSqls(sqls []string) error {
 		if err != nil {
 			err2 := tr.Rollback()
 			if err2 != nil {
-				logger.Error("DBClient:ExcuteSqls sn:%v,sql:%v,i:%v", self.sn, sql, err2)
+				logger.Error("DBClient:ExcuteSqls sn:%v,db:%v,sql:%v,i:%v", self.sn, self.cfg.Dbase, sql, err2)
 			}
 			return err
 		}
@@ -306,6 +317,8 @@ type DBMgr struct {
 	pending chan IDBCmd    // 指令完成队列
 	dbterm  chan bool      // 数据执行退出信号
 	dbwt    sync.WaitGroup // 数据安全等待锁
+
+	cfg *Config
 }
 
 func NewDBMgr(cfg *Config) *DBMgr {
@@ -318,6 +331,7 @@ func NewDBMgr(cfg *Config) *DBMgr {
 func (self *DBMgr) init(cfg *Config) {
 	self.dbterm = make(chan bool)
 
+	self.cfg = cfg
 	// clts * cmd_size?
 	self.pending = make(chan IDBCmd, cmd_size*2)
 	self.clts = make(map[int8]*DBClient)
@@ -340,14 +354,26 @@ func (self *DBMgr) CltCount() int32 {
 // 1.cmd 执行指令
 func (self *DBMgr) addRep(cmd IDBCmd) {
 	w := cmd.GetW()
-	if w != nil {
-		w <- true
-	} else {
+	syncr := func() {
+		select {
+		case w <- true:
+		default:
+			logger.Warning("DBMgr:syncr db:%v,d:%v", self.cfg.Dbase, cmd.Dump())
+		}
+	}
+
+	asyncr := func() {
 		select {
 		case self.pending <- cmd:
 		default:
-			logger.Warning("DBMgr:addRep d:%v", cmd.Dump())
+			logger.Warning("DBMgr:asyncr db:%v,d:%v", self.cfg.Dbase, cmd.Dump())
 		}
+	}
+
+	if w != nil {
+		syncr()
+	} else {
+		asyncr()
 	}
 }
 
@@ -372,7 +398,7 @@ func (self *DBMgr) AddReq(cmd IDBCmd, sync bool) bool {
 
 	clt := self.findClient(sn)
 	if clt == nil {
-		logger.Error("DBMgr:AddReq sn:%d,i:%v", sn, cmd.Dump())
+		logger.Error("DBMgr:AddReq sn:%d,db:%v,i:%v", sn, self.cfg.Dbase, cmd.Dump())
 		return false
 	}
 
@@ -405,7 +431,7 @@ func (self *DBMgr) run() {
 
 		case cmd, ok := <-self.pending:
 			if !ok {
-				logger.Error("DBMgr:run pending <-")
+				logger.Error("DBMgr:run db:%v,pending <-", self.cfg.Dbase)
 				return
 			}
 

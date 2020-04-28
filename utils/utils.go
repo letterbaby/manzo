@@ -143,8 +143,8 @@ func CallByTimeOut(f func(), to int64) bool {
 		return true
 	case <-time.After(time.Second * time.Duration(to)):
 		//panic("DebugCall")
-		return false
 	}
+	return false
 }
 
 // 多语言字符统计

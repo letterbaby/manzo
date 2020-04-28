@@ -245,12 +245,12 @@ func (self *LuaState) PushIn(id int32, playerId int32, msgData interface{}, to i
 
 	select {
 	case self.in <- msg:
+		return true
 	case <-time.After(time.Second * time.Duration(to)):
 		self.PutLuaMsg(msg)
 		logger.Warning("LuaState:in s:%v,msg:%v", self.X, msg)
-		return false
 	}
-	return true
+	return false
 }
 
 func (self *LuaState) PushOut(id int32, playerId int32, msgData interface{}, to int32) {
