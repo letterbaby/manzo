@@ -13,7 +13,7 @@ import (
 
 var (
 	// 没有宏!!只有启动用到if
-	ALERT_FIELD = "0000" // 采用 -ldflags "-X mysql.ALERT_FIELD=1111"
+	ALERT_FIELD = "1111" // 采用 -ldflags "-X mysql.ALERT_FIELD=1111"
 )
 
 // 创建表工具
