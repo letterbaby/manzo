@@ -84,8 +84,8 @@ func (self *Agent) Init(cfg *Config) {
 }
 
 func (self *Agent) SendMsg(msg interface{}, to int32) {
-	if to <= 0 {
-		to = 1
+	if to < 2 {
+		to = 2
 	}
 
 	select {
@@ -97,7 +97,7 @@ func (self *Agent) SendMsg(msg interface{}, to int32) {
 
 func (self *Agent) InnerMsg(msg interface{}, to int32) {
 	if to <= 0 {
-		to = 1
+		to = DEFAULT_SEND_TIMEOUT
 	}
 
 	select {

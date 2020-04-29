@@ -56,6 +56,7 @@ type BusClient struct {
 	network.TcpClient
 
 	seqId  uint32
+	callc  chan bool //dis
 	caller map[uint32]chan *network.RawMessage
 
 	mgr *BusClientMgr
@@ -93,15 +94,18 @@ func (self *BusClient) init(cfg *network.Config) bool {
 	}
 
 	self.Authed = false
+
 	self.caller = make(map[uint32]chan *network.RawMessage, 0)
 
 	self.OnData = self.OnBusData
 	self.OnConnect = func() {
+		self.callc = make(chan bool, 1)
 		self.mgr.OnMount(self)
 	}
 
 	self.OnDisconnect = func() {
 		self.mgr.UnRegBus(self)
+		close(self.callc)
 	}
 
 	self.OnPing = func() {
@@ -204,8 +208,10 @@ func (self *BusClient) SendData(msg *network.RawMessage, sync bool, to int32) *n
 		select {
 		case rd := <-w:
 			return rd
-		case <-time.After(time.Second * time.Duration(to)):
+		case <-self.callc:
 			logger.Warning("BusClient:SendData conn:%v,msg:%v", self.Conn, msg)
+		case <-time.After(time.Second * time.Duration(to)):
+			logger.Warning("BusClient:SendData conn:%v,msg:%v,to:%v", self.Conn, msg, to)
 		}
 		// 手动done
 		self.callerDone(id, nil)

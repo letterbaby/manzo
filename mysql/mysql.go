@@ -50,7 +50,7 @@ func (self *MySyncDBCmd) Wait() bool {
 	select {
 	case <-self.w:
 		return true
-	case <-time.After(time.Second * 2):
+	case <-time.After(time.Second * 10):
 		logger.Warning("MySyncDBCmd:Wait id:%v,sql:%v,sn:%v", self.Id, self.Sql, self.SN)
 	}
 	return false
