@@ -193,7 +193,7 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		return false
 	}
 
-	//now := time.Now()
+	now := time.Now()
 
 	for i := 0; i < 2; i++ {
 		if excute() {
@@ -201,8 +201,11 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 		}
 	}
 
-	//logger.Debug("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v,tt:%v",
-	//	self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected(), time.Now().Sub(now))
+	tt := time.Now().Sub(now)
+	if tt > time.Millisecond*50 {
+		logger.Debug("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v,cmd:%v,tt:%v",
+			self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected(), cmd, time.Now().Sub(now))
+	}
 }
 
 // 数据执行线程
