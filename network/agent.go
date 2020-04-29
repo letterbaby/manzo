@@ -96,8 +96,8 @@ func (self *Agent) SendMsg(msg interface{}, to int32) {
 }
 
 func (self *Agent) InnerMsg(msg interface{}, to int32) {
-	if to <= 0 {
-		to = DEFAULT_SEND_TIMEOUT
+	if to < 2 {
+		to = 2
 	}
 
 	select {
