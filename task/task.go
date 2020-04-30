@@ -1,6 +1,8 @@
 package task
 
 import (
+	"time"
+
 	"github.com/letterbaby/manzo/logger"
 	"github.com/letterbaby/manzo/utils"
 )
@@ -25,18 +27,29 @@ func (self *Tasker) init(sn int8, name string) {
 	go self.run()
 }
 
+func (self *Tasker) tryExcute(t ITask) {
+	now := time.Now()
+
+	//ok := utils.CallByTimeOut(func() {
+	t.OnExcute()
+	//}, 10)
+	//if !ok {
+	//msg.TimeOut()
+	//}
+	tt := time.Now().Sub(now)
+	if tt > time.Millisecond*50 {
+		logger.Warning("Tasker:tryExcute sn:%v,n:%v,t:%v,tt:%v",
+			self.sn, self.name, t, time.Now().Sub(now))
+	}
+}
+
 func (self *Tasker) run() {
 	defer utils.CatchPanic()
 
 	for {
 		select {
 		case msg := <-self.Msg:
-			ok := utils.CallByTimeOut(func() {
-				msg.OnExcute()
-			}, 5)
-			if !ok {
-				msg.TimeOut()
-			}
+			self.tryExcute(msg)
 		}
 	}
 }
