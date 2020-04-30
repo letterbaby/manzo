@@ -203,7 +203,7 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 
 	tt := time.Now().Sub(now)
 	if tt > time.Millisecond*50 {
-		logger.Debug("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v,cmd:%v,tt:%v",
+		logger.Warning("DBClient:tryExcute sn:%v,db:%v,dis:%v,isc:%v,cmd:%v,tt:%v",
 			self.sn, self.cfg.Dbase, self.disc, self.conn.IsConnected(), cmd, time.Now().Sub(now))
 	}
 }
