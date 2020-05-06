@@ -176,6 +176,7 @@ func (self *ProtoMessage) Deserialize(buf *Buffer) (*RawMessage, error) {
 
 	rtype, ok := self.msgMap[msg.MsgId]
 	if !ok {
+		// Hook透传的[]byte??
 		return nil, fmt.Errorf("ProtoMessage:desc msg:%v", msg)
 	}
 

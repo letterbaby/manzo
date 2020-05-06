@@ -88,23 +88,13 @@ func (self *Conn) SendMsg(msg interface{}) error {
 	return err
 }
 
-func (self *Conn) check(buf *Buffer) (*RawMessage, error) {
-	//释放
-	defer func() {
-		buf.Free()
-	}()
-
-	msg, err := self.cfg.Parser.Deserialize(buf)
-	if err != nil {
-		return nil, err
-	}
-
+func (self *Conn) check(buf *Buffer) error {
 	/*if msg.Seq != self.packetCount {
 		return nil, ErrSeq
 	}*/
 	//self.packetCount++
 
-	return msg, nil
+	return nil
 }
 
 func (self *Conn) RecvMsg() (*RawMessage, error) {
@@ -119,21 +109,24 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 	}
 
 	buf := NewBuffer(int(sz))
+	defer func() {
+		buf.Free()
+	}()
+
 	buf.Data = buf.Data[0:sz]
 
 	_, err = io.ReadFull(self.conn, buf.Data)
 	if err != nil {
-		buf.Free()
 		return nil, err
 	}
 
 	now := time.Now()
 
-	//logger.Debug("Conn:recvMsg conn:%v,data:%v,buf:%v", self, len(buf.Data), buf)
-	msg, err := self.check(buf)
+	msg, err := self.cfg.Parser.Deserialize(buf)
 	if err != nil {
 		return nil, err
 	}
+	//logger.Debug("Conn:recvMsg conn:%v,data:%v,buf:%v", self, len(buf.Data), buf)
 
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {
