@@ -214,10 +214,7 @@ func (self *Cluster) getConnForAddr(addr string) (redis.Conn, error) {
 	pool, ok := self.pools[addr]
 	self.Unlock()
 
-	if !ok {
-		return nil, errNoNodeFound
-	}
-	if pool != nil {
+	if ok && pool != nil {
 		return pool.Get(), nil
 	}
 
@@ -256,7 +253,6 @@ func (self *Cluster) getConnForSlot(slot int, replicas bool) (redis.Conn, error)
 	//第0位默认是主, 取从的库
 	addr := addrs[0]
 	if replicas && len(addrs) > 1 {
-
 		if len(addrs) == 2 {
 			addr = addrs[1]
 		} else {

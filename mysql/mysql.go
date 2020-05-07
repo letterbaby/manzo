@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/letterbaby/manzo/logger"
@@ -92,8 +91,7 @@ type DBClient struct {
 	dbmgr *DBMgr // 数据库管理器
 
 	pending chan IDBCmd
-	dbterm  chan bool      // 数据执行退出信号
-	dbwt    sync.WaitGroup // 数据安全等待锁
+	dbterm  chan bool // 数据执行退出信号
 
 	disc bool // 假定有错都是连接断开
 
@@ -122,7 +120,6 @@ func (self *DBClient) init(sn int8, cfg *Config, dbmgr *DBMgr) {
 		logger.Fatal("DBClient:init sn:%v,db:%v,cfg:%v", self.sn, self.cfg.Dbase, cfg)
 	}
 
-	self.dbwt.Add(1)
 	go self.run()
 }
 
@@ -211,7 +208,6 @@ func (self *DBClient) tryExcute(cmd IDBCmd) {
 // 数据执行线程
 func (self *DBClient) run() {
 	defer utils.CatchPanic()
-	defer self.dbwt.Done()
 
 	for {
 		// step1:连接检查
@@ -241,8 +237,7 @@ func (self *DBClient) run() {
 // 被动关闭, 注意数据完整性
 func (self *DBClient) close() {
 	// step1:数据完整性
-	close(self.dbterm)
-	self.dbwt.Wait()
+	self.dbterm <- true
 
 	n := len(self.pending)
 	//logger.Debug("DBClient close:%v", n)
@@ -317,9 +312,8 @@ func (self *DBClient) Escape(v string) string {
 type DBMgr struct {
 	clts map[int8]*DBClient // 数据访问客户端列表
 
-	pending chan IDBCmd    // 指令完成队列
-	dbterm  chan bool      // 数据执行退出信号
-	dbwt    sync.WaitGroup // 数据安全等待锁
+	pending chan IDBCmd // 指令完成队列
+	dbterm  chan bool   // 数据执行退出信号
 
 	cfg *Config
 }
@@ -345,7 +339,6 @@ func (self *DBMgr) init(cfg *Config) {
 		self.clts[int8(i)] = clt
 	}
 
-	self.dbwt.Add(1)
 	go self.run()
 }
 
@@ -424,7 +417,6 @@ func (self *DBMgr) AddReq(cmd IDBCmd, sync bool) bool {
 // 数据执行线程
 func (self *DBMgr) run() {
 	defer utils.CatchPanic()
-	defer self.dbwt.Done()
 
 	for {
 		// step1:被动退出
@@ -450,8 +442,7 @@ func (self *DBMgr) Close() {
 		v.close()
 	}
 
-	close(self.dbterm)
-	self.dbwt.Wait()
+	self.dbterm <- true
 
 	n := len(self.pending)
 	//logger.Debug("DBMgr close:%v", n)
