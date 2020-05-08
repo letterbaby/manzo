@@ -114,13 +114,13 @@ func (self *RedisCluster) Do(cmd string, replicas bool, args ...interface{}) (in
 		return nil, noArgsFound
 	}
 
-	var lastErr error
-	for i := 0; i < 2; i++ {
+	tryExcute := func() (interface{}, error) {
 		key := args[0].(string)
 		conn, err := self.cluster.getConnForSlot(slot(key), replicas)
 		if err != nil {
 			return nil, err
 		}
+		defer conn.Close()
 
 		// 链接池分开？？？？？
 		// 1、允许从从库读取的需求一般都是不及时的
@@ -135,19 +135,44 @@ func (self *RedisCluster) Do(cmd string, replicas bool, args ...interface{}) (in
 			conn.Do("READWRITE")
 		}
 
-		conn.Close()
-
-		lastErr = err
-		if err != nil && err != redis.ErrNil {
-			// 如果是MOVED也可以用新的地址在试一下
-			// 有错都刷新一下吧??
-			self.cluster.needsRefresh()
-			time.Sleep(time.Second * 1)
-			continue
-		}
-		return v, nil
+		return v, err
 	}
-	return nil, lastErr
+
+	var err error
+	var rt interface{}
+	excute := func() bool {
+		rt, err = tryExcute()
+		if err != nil {
+			logger.Error("RedisCluster:Do cmd:%v,args:%v,i:%v", cmd, args, err)
+			if err != redis.ErrNil {
+				// 如果是MOVED也可以用新的地址在试一下
+				// 有错都刷新一下吧??
+				err2 := self.cluster.needsRefresh()
+				if err2 != nil {
+					logger.Error("RedisCluster:Do i:%v", err2)
+					return true
+				}
+			}
+			return false
+		}
+		return true
+	}
+
+	now := time.Now()
+
+	for i := 0; i < 2; i++ {
+		if excute() {
+			break
+		}
+	}
+
+	tt := time.Now().Sub(now)
+	if tt > time.Millisecond*50 {
+		logger.Warning("RedisCluster:Do cmd:%v,re:%v,args:%v,tt:%v",
+			cmd, replicas, args, time.Now().Sub(now))
+	}
+
+	return rt, err
 }
 
 // 取唯一id

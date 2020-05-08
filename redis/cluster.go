@@ -68,32 +68,59 @@ func (self *Cluster) Init() error {
 	return self.refresh()
 }
 
-// 用来查集群信息的随便取3个,读模式不分主从
-func (self *Cluster) getNodeAddrs() []string {
+func (self *Cluster) updatePools(m []slotMapping) error {
 	self.Lock()
 	defer self.Unlock()
 
-	addrs := make([]string, 0)
+	oldpools := make(map[string]bool)
 	for k, _ := range self.pools {
-		addrs = append(addrs, k)
-		if len(addrs) > 3 {
-			break
+		oldpools[k] = false
+	}
+
+	for _, sm := range m {
+		for _, node := range sm.nodes {
+			if node == "" {
+				continue
+			}
+
+			_, ok := self.pools[node]
+			if !ok {
+				self.pools[node] = nil
+			}
+
+			oldpools[node] = true
+		}
+		for i := sm.start; i <= sm.end; i++ {
+			self.mapping[i] = sm.nodes
 		}
 	}
 
-	return addrs
+	// 删除没有用的
+	for k, v := range oldpools {
+		if v {
+			continue
+		}
+		pool, ok := self.pools[k]
+		if ok {
+			if pool != nil {
+				pool.Close()
+			}
+			delete(self.pools, k)
+		}
+	}
+	return nil
 }
 
-func (self *Cluster) getClusterSlots(addr string) ([]slotMapping, error) {
+func (self *Cluster) updateSlots(addr string) error {
 	conn, err := self.getConnForAddr(addr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer conn.Close()
 
 	vals, err := redis.Values(conn.Do("CLUSTER", "SLOTS"))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	m := make([]slotMapping, 0, len(vals))
@@ -101,13 +128,13 @@ func (self *Cluster) getClusterSlots(addr string) ([]slotMapping, error) {
 		var slotRange []interface{}
 		vals, err = redis.Scan(vals, &slotRange)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		var start, end int
 		slotRange, err = redis.Scan(slotRange, &start, &end)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		sm := slotMapping{start: start, end: end}
@@ -116,13 +143,13 @@ func (self *Cluster) getClusterSlots(addr string) ([]slotMapping, error) {
 			var nodes []interface{}
 			slotRange, err = redis.Scan(slotRange, &nodes)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			var addr string
 			var port int
 			if _, err = redis.Scan(nodes, &addr, &port); err != nil {
-				return nil, err
+				return err
 			}
 			sm.nodes = append(sm.nodes, addr+":"+strconv.Itoa(port))
 		}
@@ -130,89 +157,70 @@ func (self *Cluster) getClusterSlots(addr string) ([]slotMapping, error) {
 		m = append(m, sm)
 	}
 
-	return m, nil
+	return self.updatePools(m)
 }
 
 func (self *Cluster) refresh() error {
-	//var lastErr error
-	defer utils.CatchPanic()
+	addrs := make([]string, 0)
 
-	addrs := self.getNodeAddrs()
+	getaddrs := func() {
+		self.RLock()
+		defer self.RUnlock()
+		for k, _ := range self.pools {
+			addrs = append(addrs, k)
+			if len(addrs) >= 3 {
+				break
+			}
+		}
+	}
+
+	// 用来查集群信息的随便取3个,读模式不分主从
+	getaddrs()
+
+	var lastErr error
 	for _, addr := range addrs {
-		m, err := self.getClusterSlots(addr)
+		err := self.updateSlots(addr)
 		if err != nil {
-			//lastErr = err
+			lastErr = err
 			continue
 		}
+		return nil
+	}
+	return lastErr
+}
 
-		self.Lock()
+func (self *Cluster) needsRefresh() error {
+	self.Lock()
 
-		oldpools := make(map[string]bool)
-		for k, _ := range self.pools {
-			oldpools[k] = false
-		}
-
-		for _, sm := range m {
-			for _, node := range sm.nodes {
-				if node == "" {
-					continue
-				}
-
-				_, ok := self.pools[node]
-				if !ok {
-					self.pools[node] = nil
-				}
-
-				oldpools[node] = true
-			}
-			for i := sm.start; i <= sm.end; i++ {
-				self.mapping[i] = sm.nodes
-			}
-		}
-
-		// 删除没有用的
-		for k, v := range oldpools {
-			if v {
-				continue
-			}
-			pool, ok := self.pools[k]
-			if ok {
-				if pool != nil {
-					pool.Close()
-				}
-				delete(self.pools, k)
-			}
-		}
-
-		self.refreshing = false
+	if self.refreshing {
 		self.Unlock()
+
+		utils.ASyncWait(func() bool {
+			self.RLock()
+			defer self.RUnlock()
+			return !self.refreshing
+		})
 
 		return nil
 	}
+	self.refreshing = true
+	self.Unlock()
+
+	err := self.refresh()
 
 	self.Lock()
 	self.refreshing = false
 	self.Unlock()
 
-	return errNoNodeFound
-}
-
-func (self *Cluster) needsRefresh() {
-	self.Lock()
-	defer self.Unlock()
-
-	if !self.refreshing {
-		self.refreshing = true
-		go self.refresh()
-	}
+	return err
 }
 
 func (self *Cluster) getConnForAddr(addr string) (redis.Conn, error) {
 	logger.Debug("Cluster:getConnForAddr addr:%s", addr)
 
-	self.Lock()
+	self.RLock()
 	pool, ok := self.pools[addr]
-	self.Unlock()
+	self.RUnlock()
 
 	if ok && pool != nil {
 		return pool.Get(), nil
@@ -241,12 +249,12 @@ func (self *Cluster) getConnForAddr(addr string) (redis.Conn, error) {
 
 // replicas读优先从库
 func (self *Cluster) getConnForSlot(slot int, replicas bool) (redis.Conn, error) {
-	self.Lock()
+	self.RLock()
 
 	addrs := self.mapping[slot]
 
 	if len(addrs) == 0 {
-		self.Unlock()
+		self.RUnlock()
 		return nil, errNoNodeFound
 	}
 
@@ -260,7 +268,7 @@ func (self *Cluster) getConnForSlot(slot int, replicas bool) (redis.Conn, error)
 			addr = addrs[idx]
 		}
 	}
-	self.Unlock()
+	self.RUnlock()
 
 	return self.getConnForAddr(addr)
 }
