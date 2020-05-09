@@ -12,5 +12,5 @@ Golang game framework
 8、redis暂时只支持集群模式的连接池 <br>
 9、rand、timer、signal等其常用工具 <br>
 10、主要功能展示 <br>
-http://gitlab.ztgame.com/dida/monk
+https://github.com/letterbaby/monk
 
