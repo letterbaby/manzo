@@ -177,7 +177,15 @@ func (self *ProtoMessage) Deserialize(buf *Buffer) (*RawMessage, error) {
 	rtype, ok := self.msgMap[msg.MsgId]
 	if !ok {
 		// Hook透传的[]byte??
-		return nil, fmt.Errorf("ProtoMessage:desc msg:%v", msg)
+		if zip == 1 {
+			msg.MsgData = buff
+		} else {
+			tbuf := make([]byte, len(buff))
+			copy(tbuf, buff)
+			msg.MsgData = tbuf
+		}
+		return msg, nil
+		//return nil, fmt.Errorf("ProtoMessage:desc msg:%v", msg)
 	}
 
 	msgdata := reflect.New(rtype).Interface()
