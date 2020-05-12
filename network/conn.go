@@ -104,7 +104,7 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 		return nil, err
 	}
 
-	if sz <= 0 || sz > 60*1024 {
+	if sz <= 0 || sz > 1024*1024 {
 		return nil, ErrMsg
 	}
 
