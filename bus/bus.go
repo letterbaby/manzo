@@ -277,18 +277,19 @@ func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
 
 func (self *BusClientMgr) DelBus(sinfo *DelSvrInfo) {
 	self.Lock()
-	defer self.Unlock()
-
 	logger.Info("BusClientMgr:DelBus id:%v,s:%v", sinfo.Id,
 		GetServerIdStr(sinfo.Id))
 
 	v, ok, _ := self.buss.Get(sinfo.Id)
 	if !ok {
+		self.Unlock()
 		//logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
 		return
 	}
 
 	self.buss.Del(sinfo.Id)
+	self.Unlock()
+
 	v.(*BusClient).Disconnect()
 }
 
@@ -586,17 +587,18 @@ func (self *BusServerMgr) init(cfg *Config) {
 
 func (self *BusServerMgr) AddSvr(info *NewSvrInfo, svr *BusServer) bool {
 	self.Lock()
-	defer self.Unlock()
 
 	logger.Info("BusServerMgr:AddSvr id:%v,s:%s", info.Id, GetServerIdStr(info.Id))
 
 	_, ok := self.servers[info.Id]
 	if ok {
 		logger.Error("BusServerMgr:AddSvr id:%v", info.Id)
+		self.Unlock()
 		return false
 	}
 
 	self.servers[info.Id] = svr
+	self.Unlock()
 
 	if self.cfg.OnBusReg != nil {
 		self.cfg.OnBusReg(info, 1)
@@ -607,17 +609,18 @@ func (self *BusServerMgr) AddSvr(info *NewSvrInfo, svr *BusServer) bool {
 
 func (self *BusServerMgr) DelSvr(id int64) {
 	self.Lock()
-	defer self.Unlock()
 
 	logger.Info("BusServerMgr:DelSvr id:%v,s:%s", id, GetServerIdStr(id))
 
 	svr, ok := self.servers[id]
 	if !ok {
 		logger.Error("BusServerMgr:DelSvr id:%v", id)
+		self.Unlock()
 		return
 	}
 
 	delete(self.servers, id)
+	self.Unlock()
 
 	if self.cfg.OnBusReg != nil {
 		self.cfg.OnBusReg(svr.dest, 0)
