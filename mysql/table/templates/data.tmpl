@@ -167,6 +167,51 @@ func DelDataEx(id string, tbln string, auto bool, dbmgr *mysql.DBMgr) *{{upperfc
 	return dd(id, tbln, auto, dbmgr)
 }
 
+func (self *{{upperfc $t.Name}}Data) CreateData(id interface{}, tbln string, dbmgr *mysql.DBMgr) bool {
+	if len(cols) == 0 {
+		logger.Error("CreateData len(cols) == 0")
+		return false
+	}
+	
+	self.Id = id
+	self.IdName = idname
+	
+	if len(tbln) >0 {
+		self.TableName = tbln
+	} else {
+		self.TableName = tblname
+	}	
+
+	self.DbMgr = dbmgr
+
+	// 复制一份通用字段
+	self.Cols = make(map[string]*mysql.MyFiled)
+	for k, v := range cols {
+		self.Cols[k] = &mysql.MyFiled{Data:v.Data, Bin:v.Bin}
+	}
+
+	return true
+}
+
+func (self *{{upperfc $t.Name}}Data) LoadData(id interface{}, tbln string, create bool, dbmgr *mysql.DBMgr) bool {
+	if !self.CreateData(id, tbln, dbmgr) {
+		return false
+	}
+
+	ret := self.Load()
+	if ret == mysql.Ret_err{
+		return false
+	}
+
+	if ret == mysql.Ret_nodata {
+		if  !create || !self.Create() {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (self *{{upperfc $t.Name}}Data) GetData() []byte {
 	tbl := &Tbl{}
 	
