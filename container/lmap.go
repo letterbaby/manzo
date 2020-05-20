@@ -44,12 +44,24 @@ func (self *ListMap) Del(k interface{}) error {
 	return nil
 }
 
+func (self *ListMap) DelBtm() {
+	l := len(self.keys)
+
+	if l < 1 {
+		return
+	}
+
+	delete(self.pairs, self.keys[l-1])
+	self.keys = self.keys[:l-1]
+}
+
 func (self *ListMap) DelTop() {
 	if len(self.keys) < 1 {
 		return
 	}
 
-	self.Del(self.keys[0])
+	delete(self.pairs, self.keys[0])
+	self.keys = self.keys[1:]
 }
 
 func (self *ListMap) Get(k interface{}) (interface{}, bool, error) {
