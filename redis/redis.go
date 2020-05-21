@@ -38,6 +38,7 @@ type IRedis interface {
 	SetEx(args ...interface{}) (err error)
 	Del(args ...interface{}) (err error)
 	SetNx(args ...interface{}) (ret interface{}, err error)
+	SetExNx(args ...interface{}) (ret interface{}, err error)
 }
 
 type RedisCluster struct {
@@ -357,6 +358,22 @@ func (self *RedisCluster) SetNx(args ...interface{}) (ret interface{}, err error
 	//ret, err = self.Do("SET", false, key, args[2], "EX", args[3], "NX")
 	if err != nil {
 		logger.Error("RedisCluster:SetNx msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) SetExNx(args ...interface{}) (ret interface{}, err error) {
+	if len(args) != 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:SetExNx msg:%v", args)
+		return
+	}
+
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	ret, err = self.Do("SET", false, key, args[2], "EX", args[3], "NX")
+	if err != nil {
+		logger.Error("RedisCluster:SetExNx msg:%s,p:%v", err.Error(), args)
 	}
 
 	return
