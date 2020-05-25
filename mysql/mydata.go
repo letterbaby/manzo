@@ -23,7 +23,7 @@ type MyData struct {
 	// InitTbl初始化的
 	Cols map[string]*MyFiled
 
-	Dirty bool
+	Dirty       bool
 
 	DbMgr *DBMgr
 }
@@ -483,8 +483,8 @@ func (self *MyData) SetInt32(field string, nv int32) {
 
 	//logger.Debug("User id:%v, Dirty field:%s, old:%v, new:%v", self.Id, field, v, nv)
 
+	v.Data = nv
 	v.Dirty = true
-	self.Cols[field].Data = nv
 	self.Dirty = true
 }
 
@@ -511,8 +511,8 @@ func (self *MyData) SetInt64(field string, nv int64) {
 
 	//logger.Debug("User id:%v, Dirty field:%s, old:%v, new:%v", self.Id, field, v, nv)
 
+	v.Data = nv
 	v.Dirty = true
-	self.Cols[field].Data = nv
 	self.Dirty = true
 }
 
@@ -538,7 +538,23 @@ func (self *MyData) SetStr(field string, nv string) {
 	}
 
 	//logger.Debug("User id:%v, Dirty field:%s, old:%v, new:%v", self.Id, field, v, nv)
+	v.Data = nv
 	v.Dirty = true
-	self.Cols[field].Data = nv
 	self.Dirty = true
+}
+
+// Clean
+func (self *MyData) Clean() {
+	if !self.Dirty {
+		return
+	}
+
+	for k, v := range self.Cols {
+		if k == "id" {
+			continue
+		}
+
+		v.Dirty = false
+	}
+	self.Dirty = false
 }
