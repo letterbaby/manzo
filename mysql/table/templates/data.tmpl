@@ -40,7 +40,7 @@ var (
 )
 
 const (
-	tblname = "{{$t.Name}}"
+	TblName = "{{$t.Name}}"
 	idname  = "{{$t.IdName}}"
 )
 
@@ -52,7 +52,7 @@ func Init(tbln string, dbops *mysql.MyOps) {
 	if len(tbln) >0 {
 		dbops.UseTable(tbln)
 	} else {
-		dbops.UseTable(tblname)
+		dbops.UseTable(TblName)
 	}
 	//MyISAM,InnoDB
 	
@@ -88,7 +88,7 @@ func cd(id interface{}, tbln string, dbmgr *mysql.DBMgr)*{{upperfc $t.Name}}Data
 	if len(tbln) >0 {
 		data.TableName = tbln
 	} else {
-		data.TableName = tblname
+		data.TableName = TblName
 	}	
 
 	data.DbMgr = dbmgr
@@ -147,7 +147,7 @@ func dd(id interface{}, tbln string, auto bool, dbmgr *mysql.DBMgr) *{{upperfc $
 	if len(tbln) >0 {
 		data.TableName = tbln
 	} else {
-		data.TableName = tblname
+		data.TableName = TblName
 	}		
 
 	data.DbMgr = dbmgr
@@ -179,7 +179,7 @@ func (self *{{upperfc $t.Name}}Data) CreateData(id interface{}, tbln string, dbm
 	if len(tbln) >0 {
 		self.TableName = tbln
 	} else {
-		self.TableName = tblname
+		self.TableName = TblName
 	}	
 
 	self.DbMgr = dbmgr
