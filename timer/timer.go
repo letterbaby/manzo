@@ -146,6 +146,8 @@ func (self *TimerMgr) nextId() int64 {
 }
 
 func (self *TimerMgr) push() {
+	defer utils.CatchPanic()
+
 	for {
 		select {
 		case t := <-self.add:
@@ -171,6 +173,8 @@ func (self *TimerMgr) push() {
 }
 
 func (self *TimerMgr) pop() {
+	defer utils.CatchPanic()
+
 	t := heap.Pop(&self.datas).(ITimer)
 
 	now := time.Now().Unix()
@@ -186,6 +190,8 @@ func (self *TimerMgr) pop() {
 }
 
 func (self *TimerMgr) remove() {
+	defer utils.CatchPanic()
+
 	for {
 		select {
 		case t := <-self.del:

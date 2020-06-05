@@ -233,6 +233,8 @@ func (self *Agent) runAgent() {
 }
 
 func (self *Agent) handIn(msg *RawMessage) *RawMessage {
+	defer utils.CatchPanic()
+
 	self.packetCountOneMin++
 
 	logger.Debug("Agent:handin conn:%v,msg:%v", self.Conn, msg)
@@ -251,6 +253,8 @@ func (self *Agent) handIn(msg *RawMessage) *RawMessage {
 }
 
 func (self *Agent) handInner(msg interface{}) {
+	defer utils.CatchPanic()
+
 	logger.Debug("Agent:handinner conn:%v,msg:%v", self.Conn, msg)
 
 	now := time.Now()
@@ -265,6 +269,8 @@ func (self *Agent) handInner(msg interface{}) {
 }
 
 func (self *Agent) timerCheck() bool {
+	defer utils.CatchPanic()
+
 	if self.OnTimer != nil {
 		self.OnTimer(TIMER_ACC)
 	}

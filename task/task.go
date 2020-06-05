@@ -28,6 +28,8 @@ func (self *Tasker) init(sn int8, name string) {
 }
 
 func (self *Tasker) tryExcute(t ITask) {
+	defer utils.CatchPanic()
+
 	now := time.Now()
 
 	//ok := utils.CallByTimeOut(func() {

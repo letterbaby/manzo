@@ -137,6 +137,8 @@ func (self *DBClient) addReq(cmd IDBCmd) bool {
 
 // 数据库连接检查+重连
 func (self *DBClient) check() error {
+	defer utils.CatchPanic()
+
 	if !self.disc {
 		return nil
 	}

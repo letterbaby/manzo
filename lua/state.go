@@ -284,6 +284,8 @@ func (self *LuaState) PutLuaMsg(msg *LuaMessage) {
 }
 
 func (self *LuaState) call(fc string, fn lua.LValue, args ...lua.LValue) {
+	defer utils.CatchPanic()
+
 	now := time.Now()
 
 	err := self.state.CallByParam(lua.P{
@@ -388,6 +390,8 @@ func (self *LuaState) ProfHook(evt interface{}, snf interface{}) {
 }
 
 func (self *LuaState) updateProf(ph *proHook) {
+	defer utils.CatchPanic()
+
 	dbg, ok := ph.snf.(map[interface{}]interface{})
 	if !ok || len(dbg) <= 0 {
 		return
