@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/letterbaby/manzo/logger"
+	"github.com/letterbaby/manzo/utils"
 
 	"github.com/gomodule/redigo/redis"
 )
@@ -15,12 +16,18 @@ type Config struct {
 	MaxActive     int      `json:"-"`
 	IdleTimeOut   int      `json:"-"`
 	Password      string   `json:"password"` // 密码
-	Dbase         string   `json:dbase`
+	Dbase         string   `json:"dbase"`
 }
 
 var (
 	noArgsFound = errors.New("no args found")
 )
+
+//----------------------------------------------------------------------------------
+func slot(key string) int {
+	logger.Debug("Slot key:%v", key)
+	return int(utils.Crc16(key) % hashSlots)
+}
 
 type IRedis interface {
 	Refresh() // 如果手动增加从了，需要刷新

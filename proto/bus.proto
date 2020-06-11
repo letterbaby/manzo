@@ -44,7 +44,7 @@ message DelSvrInfo
 message RouteInfo
 {
     int64 destSvr  = 1; //世界ID_功能ID_逻辑ID, 可以用*
-	bool destAll = 2; // 是不是all
+	int64 destSt = 2; // 发送方式0:全部,-1:随机,>0:st_round
 	
 	bytes msg= 4; //透传,标准的网络协议结构
 }

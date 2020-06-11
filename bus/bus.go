@@ -389,7 +389,7 @@ func (self *BusClientMgr) GetBusClientById(svrId int64) []*BusClient {
 
 // 轮询\广播\指定
 func (self *BusClientMgr) SendData(msg *network.RawMessage,
-	sync bool, to int32, svrId int64, all bool) *network.RawMessage {
+	sync bool, to int32, svrId int64, st int64) *network.RawMessage {
 	t := self.GetBusClientById(svrId)
 
 	if len(t) <= 0 {
@@ -398,7 +398,9 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	}
 
 	var rt *network.RawMessage
-	if all {
+	if st > 0 {
+		rt = t[st%int64(len(t))].SendData(msg, sync, to)
+	} else if st == 0 {
 		for _, v := range t {
 			rmsg := msg
 			if sync {
@@ -407,7 +409,7 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 			}
 			rt = v.SendData(rmsg, sync, to)
 		}
-	} else {
+	} else if st == -1 {
 		rt = t[rand.RandInt(0, int32(len(t)-1))].SendData(msg, sync, to)
 	}
 	return rt
@@ -420,16 +422,16 @@ func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
 }
 
 // svrId要去哪里
-// all是不是要去所有的wfuncId
+// st发送方式0:全部,-1:随机,>0:st_round
 // destsvr到wfuncId不是要下车还是继续
 // sync是不是rpc
 // to发送超时
-func (self *BusClientMgr) SendRouteMsg(destSvr int64, destAll bool,
-	msg *network.RawMessage, sync bool, to int32, svrId int64, all bool) *network.RawMessage {
+func (self *BusClientMgr) SendRouteMsg(destSvr int64, destSt int64,
+	msg *network.RawMessage, sync bool, to int32, svrId int64, st int64) *network.RawMessage {
 
-	rmsg := NewRouteRawMessageOut(destSvr, destAll, msg, self.cfg.Parser)
+	rmsg := NewRouteRawMessageOut(destSvr, destSt, msg, self.cfg.Parser)
 	if rmsg != nil {
-		return self.SendData(rmsg, sync, to, svrId, all)
+		return self.SendData(rmsg, sync, to, svrId, st)
 	}
 	return nil
 }
@@ -534,7 +536,7 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 }
 
 func (self *BusServer) SendRouteMsg(msg *network.RawMessage) {
-	rmsg := NewRouteRawMessageOut(0, false, msg, self.Mgr.parser)
+	rmsg := NewRouteRawMessageOut(0, -1, msg, self.Mgr.parser)
 	if rmsg != nil {
 		self.SendMsg(rmsg, 1)
 	}
@@ -662,7 +664,7 @@ func (self *BusServerMgr) RecvRouteMsg(msg *network.RawMessage) {
 	msgdata := msg.MsgData.(*CommonMessage)
 	req := msgdata.RouteInfo
 
-	self.SendData(req.DestSvr, req.DestAll, msg, 1)
+	self.SendData(req.DestSvr, req.DestSt, msg, 1)
 }
 
 func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
@@ -675,7 +677,7 @@ func (self *BusServerMgr) NewServer(id int64, ip string, port string) {
 
 	rmsg := NewBusRawMessage(msg)
 
-	self.SendData(0, true, rmsg, 1)
+	self.SendData(0, 0, rmsg, 1)
 }
 
 func (self *BusServerMgr) DelServer(id int64) {
@@ -686,10 +688,11 @@ func (self *BusServerMgr) DelServer(id int64) {
 
 	rmsg := NewBusRawMessage(msg)
 
-	self.SendData(0, true, rmsg, 1)
+	self.SendData(0, 0, rmsg, 1)
 }
 
-func (self *BusServerMgr) SendData(svrId int64, all bool,
+// SendData 发送方式0:全部,-1:随机,>0:st_round
+func (self *BusServerMgr) SendData(svrId int64, st int64,
 	msg *network.RawMessage, to int32) {
 
 	// !!!
@@ -711,13 +714,16 @@ func (self *BusServerMgr) SendData(svrId int64, all bool,
 		return
 	}
 
-	if all {
+	if st > 0 {
+		buf.Ref()
+		svrs[st%int64(len(svrs))].SendMsg(buf, 1)
+	} else if st == 0 {
 		for _, v := range svrs {
 			//增加引用次数
 			buf.Ref()
 			v.SendMsg(buf, 1)
 		}
-	} else {
+	} else if st == -1 {
 		buf.Ref()
 		svrs[rand.RandInt(0, int32(len(svrs)-1))].SendMsg(buf, 1)
 	}
@@ -725,12 +731,13 @@ func (self *BusServerMgr) SendData(svrId int64, all bool,
 	buf.Free()
 }
 
-func (self *BusServerMgr) SendRouteMsg(destSvr int64, destAll bool,
-	msg *network.RawMessage, to int32, svrId int64, all bool) {
+// st发送方式0:全部,-1:随机,>0:st_round
+func (self *BusServerMgr) SendRouteMsg(destSvr int64, destSt int64,
+	msg *network.RawMessage, to int32, svrId int64, st int64) {
 
-	rmsg := NewRouteRawMessageOut(destSvr, destAll, msg, self.cfg.Parser)
+	rmsg := NewRouteRawMessageOut(destSvr, destSt, msg, self.cfg.Parser)
 	if rmsg != nil {
-		self.SendData(svrId, all, rmsg, 1)
+		self.SendData(svrId, st, rmsg, 1)
 	}
 }
 
