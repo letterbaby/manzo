@@ -17,8 +17,8 @@ func (self SvrId) Int64() int64 {
 	return MakeServerIdByStr(string(self))
 }
 */
-//WorldId(256)| FuncId (256) | LogicId(256)
-// 	8        |	    8     |  8
+//WorldId(256)| FuncId (256) | LogicId(65535)
+// 	8        |	    8     |  16
 // 服务器id规则  世界ID_功能ID_逻辑ID
 func MakeServerIdByStr(id string) int64 {
 	ids := strings.Split(id, "_")
@@ -44,42 +44,42 @@ func MakeServerIdByStr(id string) int64 {
 func MakeServerId(wid int64, fid int64, lid int64) int64 {
 	if wid < 0 || wid > 255 ||
 		fid < 0 || fid > 255 ||
-		lid < 0 || lid > 255 {
+		lid < 0 || lid > 65535 {
 		return 0
 	}
 
-	return int64(wid<<16 | fid<<8 | lid)
+	return int64(wid<<32 | fid<<24 | lid)
 }
 
 func GetServerWorldId(id int64) int64 {
-	return int64(byte(id >> 16))
+	return int64(byte(id >> 32))
 }
 
 func GetServerFuncId(id int64) int64 {
-	return int64(byte(id >> 8))
+	return int64(byte(id >> 24))
 }
 
 func GetServerLogicId(id int64) int64 {
-	return int64(byte(id))
+	return int64(uint16(id))
 }
 
 func GetServerId(id int64) (int64, int64, int64) {
-	return int64(byte(id >> 16)), int64(byte(id >> 8)), int64(byte(id))
+	return int64(byte(id >> 32)), int64(byte(id >> 24)), int64(uint16(id))
 }
 
 func GetServerIdStr(id int64) string {
 	rt := fmt.Sprintf("%d_%d_%d",
-		int64(byte(id>>16)), int64(byte(id>>8)), int64(byte(id)))
+		int64(byte(id>>32)), int64(byte(id>>24)), int64(uint16(id)))
 	return rt
 }
 
 func MakeWorldFuncId(wid int64, fid int64) int64 {
-	return int64(wid<<16 | fid<<8)
+	return int64(wid<<32 | fid<<24)
 }
 
 func GetWorldFuncId(id int64) int64 {
 	wid, fid, _ := GetServerId(id)
-	return int64(wid<<16 | fid<<8)
+	return int64(wid<<32 | fid<<24)
 }
 
 func IsSameWorldFuncId(sid int64, did int64) bool {
@@ -88,6 +88,7 @@ func IsSameWorldFuncId(sid int64, did int64) bool {
 	return (sw == 0 || sw == dw) && (sf == 0 || sf == df)
 }
 
+//-------------------------------------------------------------------------------------
 func NewBusRawMessage(msg *CommonMessage) *network.RawMessage {
 	rmsg := &network.RawMessage{}
 	rmsg.MsgId = uint16(Cmd_NONE)
