@@ -1,5 +1,7 @@
 package container
 
+import "fmt"
+
 type Pair struct {
 	Key   interface{}
 	Value interface{}
@@ -32,6 +34,11 @@ func (self *ListMap) Add(k interface{}, v interface{}) error {
 }
 
 func (self *ListMap) Del(k interface{}) error {
+	_, ok := self.pairs[k]
+	if !ok {
+		return fmt.Errorf("ListMap:Del k:%v", k)
+	}
+
 	delete(self.pairs, k)
 
 	for i, v := range self.keys {
