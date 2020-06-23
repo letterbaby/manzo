@@ -5,7 +5,18 @@ import (
 )
 
 const (
-	TT = "2006-01-02 15:04:05"
+	TT             = "2006-01-02 15:04:05"
+	MINUTE_SECONDS = 60    //每分钟的秒数
+	HOUR_SECONDS   = 3600  //每小时的秒数
+	DAY_SECONDS    = 86400 //每天的秒数
+)
+
+type HoDay int32
+
+const (
+	HO_NONE    HoDay = 0
+	HO_YUANDAN HoDay = 1
+	HO_ERTONG  HoDay = 2
 )
 
 // TimeNowStr 当前时间到字符串
@@ -71,4 +82,38 @@ func DayCrossZero(sec int64) int32 {
 		bday = bday.AddDate(0, 0, 1)
 	}
 	return d
+}
+
+// DayCross 经历了多少天，取整
+func DayCross(sec int64) int32 {
+	now := time.Now()
+	bf := time.Unix(sec, 0)
+	return int32(now.Sub(bf).Seconds() / DAY_SECONDS)
+}
+
+// GetHoDay 当天是不是摸个节日
+func GetDayHo() HoDay {
+	now := time.Now()
+	if now.Month() == 1 && now.Day() == 1 {
+		return HO_YUANDAN
+	} else if now.Month() == 6 && now.Day() == 1 {
+		return HO_ERTONG
+	} else if now.Month() == 5 && now.Day() == 1 {
+		return HO_ERTONG
+	} else if now.Month() == 10 && now.Day() == 1 {
+		return HO_ERTONG
+	}
+	return HO_NONE
+}
+
+// EndTimeSec 取结束时间,d是秒
+func EndTimeSec(sec int64, d int64) time.Time {
+	bf := time.Unix(sec, 0)
+	return bf.Add(time.Second * time.Duration(d))
+}
+
+// EndTimeSec 取结束时间,d是秒
+func EndTimeStr(t string, d int64) time.Time {
+	bf, _ := TimeFromStr(t)
+	return bf.Add(time.Second * time.Duration(d))
 }
