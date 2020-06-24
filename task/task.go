@@ -50,7 +50,10 @@ func (self *Tasker) run() {
 
 	for {
 		select {
-		case msg := <-self.Msg:
+		case msg, ok := <-self.Msg:
+			if !ok {
+				return
+			}
 			self.tryExcute(msg)
 		}
 	}
@@ -67,6 +70,10 @@ func (self *Tasker) add(t ITask) bool {
 }
 
 func (self *Tasker) close() {
+	defer func() {
+		close(self.Msg)
+	}()
+
 	utils.ASyncWait(func() bool {
 		return len(self.Msg) == 0
 	})

@@ -132,9 +132,13 @@ type LuaState struct {
 	//--------------------------
 
 	sync.RWMutex
+
+	closed chan bool
 }
 
 func (self *LuaState) Init(x int, loadlibs func(s *lua.LState)) {
+	self.closed = make(chan bool)
+
 	self.X = x
 
 	self.refs = make(map[int32]chan *LuaMessage)
@@ -168,6 +172,9 @@ func (self *LuaState) RefCount() int {
 }
 
 func (self *LuaState) Close() {
+	// 关闭携程
+	self.closed <- true
+
 	self.state.Close()
 
 	if self.pro_run != nil {
@@ -334,6 +341,8 @@ func (self *LuaState) run() {
 				//	gc = 0
 				//}
 			}
+		case <-self.closed:
+			return
 		}
 	}
 }
