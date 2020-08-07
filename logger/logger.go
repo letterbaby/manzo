@@ -354,6 +354,12 @@ func loadCfg(cfgPath string) *Config {
 func Start(cfgPath string) {
 	cfg := loadCfg(cfgPath)
 
+	if cfg != nil {
+		StartEx(cfg)
+	}
+}
+
+func StartEx(cfg *Config) {
 	if cfg.Level <= 0 {
 		cfg.Level = 1
 	}
