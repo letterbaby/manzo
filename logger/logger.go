@@ -56,13 +56,7 @@ type Config struct {
 
 type Handler interface {
 	//init(classify Level, cfg *Config)
-
-	Debug(format string, a ...interface{})
-	Info(format string, a ...interface{})
-	Warning(format string, a ...interface{})
-	Error(format string, a ...interface{})
-	Fatal(format string, a ...interface{})
-
+	LogMsg(lvl Level, msg string)
 	close()
 }
 
@@ -149,54 +143,12 @@ func (self *LogHandler) log(msg string) {
 	}
 }
 
-func (self *LogHandler) Debug(format string, a ...interface{}) {
-	if self.cfg.Classify && self.classifyLvl != DEBUG {
+func (self *LogHandler) LogMsg(lvl Level, msg string) {
+	if self.cfg.Classify && self.classifyLvl != lvl {
 		return
 	}
 
-	f := "[DBG]" + format
-	self.log(fmt.Sprintf(f, a...))
-	//self.lg.Output(0, fmt.Sprintf(f, a...))
-}
-
-func (self *LogHandler) Info(format string, a ...interface{}) {
-	if self.cfg.Classify && self.classifyLvl != INFO {
-		return
-	}
-
-	f := "[INF]" + format
-	self.log(fmt.Sprintf(f, a...))
-	//self.lg.Output(0, fmt.Sprintf(f, a...))
-}
-
-func (self *LogHandler) Warning(format string, a ...interface{}) {
-	if self.cfg.Classify && self.classifyLvl != WARNING {
-		return
-	}
-
-	f := "[WRN]" + format
-	self.log(fmt.Sprintf(f, a...))
-	//self.lg.Output(0, fmt.Sprintf(f, a...))
-}
-
-func (self *LogHandler) Error(format string, a ...interface{}) {
-	if self.cfg.Classify && self.classifyLvl != ERROR {
-		return
-	}
-
-	f := "[ERR]" + format
-	self.log(fmt.Sprintf(f, a...))
-	//self.lg.Output(0, fmt.Sprintf(f, a...))
-}
-
-func (self *LogHandler) Fatal(format string, a ...interface{}) {
-	if self.cfg.Classify && self.classifyLvl != FATAL {
-		return
-	}
-
-	f := "[FAT]" + format
-	self.log(fmt.Sprintf(f, a...))
-	//self.lg.Output(0, fmt.Sprintf(f, a...))
+	self.log(msg)
 }
 
 func (self *LogHandler) fin() {
@@ -409,8 +361,10 @@ func Debug(format string, a ...interface{}) {
 		return
 	}
 
+	f := "[DBG]" + format
+	msg := fmt.Sprintf(f, a...)
 	for i := range logger.handlers {
-		logger.handlers[i].Debug(format, a...)
+		logger.handlers[i].LogMsg(DEBUG, msg)
 	}
 }
 
@@ -419,8 +373,10 @@ func Info(format string, a ...interface{}) {
 		return
 	}
 
+	f := "[INF]" + format
+	msg := fmt.Sprintf(f, a...)
 	for i := range logger.handlers {
-		logger.handlers[i].Info(format, a...)
+		logger.handlers[i].LogMsg(INFO, msg)
 	}
 }
 
@@ -429,8 +385,10 @@ func Warning(format string, a ...interface{}) {
 		return
 	}
 
+	f := "[WRN]" + format
+	msg := fmt.Sprintf(f, a...)
 	for i := range logger.handlers {
-		logger.handlers[i].Warning(format, a...)
+		logger.handlers[i].LogMsg(WARNING, msg)
 	}
 }
 
@@ -449,8 +407,10 @@ func Error(format string, a ...interface{}) {
 	l := runtime.Stack(buf, false)
 	p = append(p, buf[:l])
 
+	f := "[ERR]" + fstr
+	msg := fmt.Sprintf(f, p...)
 	for i := range logger.handlers {
-		logger.handlers[i].Error(fstr, p...)
+		logger.handlers[i].LogMsg(ERROR, msg)
 	}
 }
 
@@ -465,8 +425,10 @@ func Fatal(format string, a ...interface{}) {
 	l := runtime.Stack(buf, false)
 	p = append(p, buf[:l])
 
+	f := "[FAT]" + fstr
+	msg := fmt.Sprintf(f, p...)
 	for i := range logger.handlers {
-		logger.handlers[i].Fatal(fstr, p...)
+		logger.handlers[i].LogMsg(FATAL, msg)
 		logger.handlers[i].close()
 	}
 
