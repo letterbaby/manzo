@@ -46,6 +46,7 @@ type IRedis interface {
 	Del(args ...interface{}) (err error)
 	SetNx(args ...interface{}) (ret interface{}, err error)
 	SetExNx(args ...interface{}) (ret interface{}, err error)
+	TTL(args ...interface{}) (ret int64, err error)
 }
 
 type RedisCluster struct {
@@ -413,6 +414,22 @@ func (self *RedisCluster) Del(args ...interface{}) (err error) {
 	_, err = self.Do("DEL", false, key)
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:del msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) TTL(args ...interface{}) (ret int64, err error) {
+	if len(args) != 2 {
+		err = noArgsFound
+		logger.Error("RedisCluster:TTL msg:%v", args)
+		return
+	}
+
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	ret, err = redis.Int64(self.Do("TTL", false, key))
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:TTL msg:%s,p:%v", err.Error(), args)
 	}
 
 	return

@@ -148,24 +148,27 @@ func (self *TimerMgr) nextId() int64 {
 func (self *TimerMgr) push() {
 	defer utils.CatchPanic()
 
+	add := func(t ITimer) {
+		ok := false
+		if t.GetId() > 0 {
+			_, ok = self.datams[t.GetId()]
+		} else {
+			t.SetId(self.nextId())
+		}
+
+		if !ok {
+			logger.Debug("TimerMgr:push t:%v", t.GetId())
+			self.datams[t.GetId()] = t
+			heap.Push(&self.datas, t)
+		} else {
+			logger.Error("TimerMgr:push t:%v", t)
+		}
+	}
+
 	for {
 		select {
 		case t := <-self.add:
-			err := false
-
-			if t.GetId() > 0 {
-				_, err = self.datams[t.GetId()]
-			} else {
-				t.SetId(self.nextId())
-			}
-
-			if !err {
-				logger.Debug("TimerMgr:push t:%v", t.GetId())
-				self.datams[t.GetId()] = t
-				heap.Push(&self.datas, t)
-			} else {
-				logger.Error("TimerMgr:push t:%v", t)
-			}
+			add(t)
 		default:
 			return
 		}
@@ -192,24 +195,28 @@ func (self *TimerMgr) pop() {
 func (self *TimerMgr) remove() {
 	defer utils.CatchPanic()
 
+	del := func(t ITimer) {
+		ok := true
+
+		if t.GetId() > 0 {
+			_, ok = self.datams[t.GetId()]
+		} else {
+			ok = false
+		}
+
+		if ok {
+			logger.Debug("TimerMgr:remove t:%v", t.GetId())
+			delete(self.datams, t.GetId())
+			heap.Remove(&self.datas, t.GetIndex())
+		} else {
+			logger.Error("TimerMgr:remove t:%v", t)
+		}
+	}
+
 	for {
 		select {
 		case t := <-self.del:
-			ok := true
-
-			if t.GetId() > 0 {
-				_, ok = self.datams[t.GetId()]
-			} else {
-				ok = false
-			}
-
-			if ok {
-				logger.Debug("TimerMgr:remove t:%v", t.GetId())
-				delete(self.datams, t.GetId())
-				heap.Remove(&self.datas, t.GetIndex())
-			} else {
-				logger.Error("TimerMgr:remove t:%v", t)
-			}
+			del(t)
 		default:
 			return
 		}
