@@ -41,7 +41,7 @@ type Agent struct {
 	packetMin         int
 
 	OnStart    func()
-	OnClose    func()
+	OnClose    func(flag int32)
 	OnMessage  func(msg *RawMessage) *RawMessage
 	OnInnerMsg func(msg interface{})
 	OnTimer    func(d int64)
@@ -196,7 +196,7 @@ func (self *Agent) runAgent() {
 		self.Conn.Close()
 
 		if self.OnClose != nil {
-			self.OnClose()
+			self.OnClose(self.flag)
 		}
 	}()
 	for {
@@ -221,6 +221,7 @@ func (self *Agent) runAgent() {
 				return
 			}
 		case <-self.disconn:
+			self.SetCloseFlag()
 			return
 		case <-self.die1:
 			return

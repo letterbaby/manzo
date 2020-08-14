@@ -47,6 +47,7 @@ type IRedis interface {
 	SetNx(args ...interface{}) (ret interface{}, err error)
 	SetExNx(args ...interface{}) (ret interface{}, err error)
 	TTL(args ...interface{}) (ret int64, err error)
+	HMset(args ...interface{}) (err error)
 }
 
 type RedisCluster struct {
@@ -215,7 +216,7 @@ func (self *RedisCluster) RegScript(sh string, kc int, sc string) (err error) {
 2、确实有不同key可以用{}解决
 */
 func (self *RedisCluster) Script(sh string, args ...interface{}) (ret interface{}, err error) {
-	if len(args) != 3 {
+	if len(args) < 3 {
 		err = noArgsFound
 		logger.Error("RedisCluster:script msg:%v", args)
 	}
@@ -232,24 +233,13 @@ func (self *RedisCluster) Script(sh string, args ...interface{}) (ret interface{
 	}
 	defer conn.Close()
 
-	ret, err = script.Do(conn, key, args[2])
+	nargs := make([]interface{}, 0)
+	nargs = append(nargs, key)
+	nargs = append(nargs, args[2:]...)
+
+	ret, err = script.Do(conn, nargs...)
 	if err != nil {
 		logger.Error("RedisCluster:script msg:%s,p:%v", err.Error(), args)
-	}
-
-	return
-}
-
-func (self *RedisCluster) Hgetall(args ...interface{}) (ret []interface{}, err error) {
-	if len(args) != 3 {
-		err = noArgsFound
-		logger.Error("RedisCluster:hgetall msg:%v", args)
-	}
-
-	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
-	ret, err = redis.Values(self.Do("HGETALL", args[0].(bool), key))
-	if err != nil && err != redis.ErrNil {
-		logger.Error("RedisCluster:hgetall msg:%s,p:%v", err.Error(), args)
 	}
 
 	return
@@ -272,6 +262,27 @@ func (self *RedisCluster) Hset(args ...interface{}) (err error) {
 	return
 }
 
+func (self *RedisCluster) HMset(args ...interface{}) (err error) {
+	if len(args) < 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:HMset msg:%v", args)
+		return
+	}
+
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+
+	nargs := make([]interface{}, 0)
+	nargs = append(nargs, key)
+	nargs = append(nargs, args[2:]...)
+
+	_, err = self.Do("HMSET", false, nargs...)
+	if err != nil {
+		logger.Error("RedisCluster:HMset msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
 // 重用的数据直接从主获取
 func (self *RedisCluster) Hget(args ...interface{}) (ret interface{}, err error) {
 	if len(args) != 4 {
@@ -284,6 +295,21 @@ func (self *RedisCluster) Hget(args ...interface{}) (ret interface{}, err error)
 	ret, err = self.Do("HGET", args[0].(bool), key, args[3])
 	if err != nil && err != redis.ErrNil {
 		logger.Error("RedisCluster:hget msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) Hgetall(args ...interface{}) (ret []interface{}, err error) {
+	if len(args) != 3 {
+		err = noArgsFound
+		logger.Error("RedisCluster:hgetall msg:%v", args)
+	}
+
+	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
+	ret, err = redis.Values(self.Do("HGETALL", args[0].(bool), key))
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:hgetall msg:%s,p:%v", err.Error(), args)
 	}
 
 	return

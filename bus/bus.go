@@ -483,7 +483,7 @@ func (self *BusServer) Initx(cfg *network.Config, mgr *BusServerMgr) {
 	self.Init(ncfg)
 }
 
-func (self *BusServer) Hand_Close() {
+func (self *BusServer) Hand_Close(flag int32) {
 	logger.Debug("BusServer:onclose conn:%v,id:%v,s:%v", self.Conn,
 		self.Id, GetServerIdStr(self.Id))
 

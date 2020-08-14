@@ -115,7 +115,7 @@ func (self *TcpClient) Hand_Start() {
 	}
 }
 
-func (self *TcpClient) Hand_Close() {
+func (self *TcpClient) Hand_Close(flag int32) {
 	if self.OnDisconnect != nil {
 		self.OnDisconnect()
 	}
