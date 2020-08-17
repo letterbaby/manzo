@@ -92,7 +92,7 @@ type TimerMgr struct {
 	sync.RWMutex
 
 	datas LSTimerData
-	acc   time.Duration // tick sleep
+	acc   int64 // tick sleep
 
 	add chan ITimer
 	del chan ITimer
@@ -113,7 +113,7 @@ func (self *TimerMgr) init(ac int, size int) {
 	self.add = make(chan ITimer, size)
 	self.del = make(chan ITimer, size)
 
-	self.acc = time.Duration(ac)
+	self.acc = int64(ac)
 	self.datas = make(LSTimerData, 0)
 
 	go self.run()
@@ -189,6 +189,7 @@ func (self *TimerMgr) pop() {
 	delete(self.datams, t.GetId())
 	logger.Debug("TimerMgr:pop t:%v", t.GetId())
 
+	// go???避免收业务影响
 	t.OnTimer(t.GetId())
 }
 
@@ -227,6 +228,7 @@ func (self *TimerMgr) run() {
 	defer utils.CatchPanic()
 
 	for {
+		now := time.Now()
 		// step:1
 		self.push()
 		// step:2
@@ -236,6 +238,10 @@ func (self *TimerMgr) run() {
 		if self.datas.Len() > 0 {
 			self.pop()
 		}
-		time.Sleep(time.Millisecond * self.acc)
+
+		dl := self.acc - time.Now().Sub(now).Milliseconds()
+		if dl > 0 {
+			time.Sleep(time.Millisecond * time.Duration(dl))
+		}
 	}
 }
