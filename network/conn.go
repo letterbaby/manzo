@@ -108,6 +108,10 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 		return nil, ErrMsg
 	}
 
+	if self.cfg.ExHeaderSize {
+		sz = sz - 4//uint32
+	}
+
 	buf := NewBuffer(int(sz))
 	defer func() {
 		buf.Free()

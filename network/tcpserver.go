@@ -23,6 +23,8 @@ type Config struct {
 	// 接口对象
 	//MsgParser func() IMessage          // for message
 	Agent func() IAgent `json:"-"` // 回话
+
+	ExHeaderSize bool
 }
 
 type TcpServer struct {
