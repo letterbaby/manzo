@@ -389,12 +389,12 @@ func (self *BusClientMgr) GetBusClientById(svrId int64) []*BusClient {
 
 // 轮询\广播\指定
 func (self *BusClientMgr) SendData(msg *network.RawMessage,
-	sync bool, to int32, svrId int64, st int64) *network.RawMessage {
+	sync bool, to int32, svrId int64, st int64) (*network.RawMessage, bool) {
 	t := self.GetBusClientById(svrId)
 
 	if len(t) <= 0 {
 		logger.Error("BusClientMgr:SendData svrId:%v", svrId)
-		return nil
+		return nil, false
 	}
 
 	var rt *network.RawMessage
@@ -412,7 +412,7 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	} else if st == -1 {
 		rt = t[rand.RandInt(0, int32(len(t)-1))].SendData(msg, sync, to)
 	}
-	return rt
+	return rt, true
 }
 
 func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
@@ -427,13 +427,13 @@ func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
 // sync是不是rpc
 // to发送超时
 func (self *BusClientMgr) SendRouteMsg(destSvr int64, destSt int64,
-	msg *network.RawMessage, sync bool, to int32, svrId int64, st int64) *network.RawMessage {
+	msg *network.RawMessage, sync bool, to int32, svrId int64, st int64) (*network.RawMessage, bool) {
 
 	rmsg := NewRouteRawMessageOut(destSvr, destSt, msg, self.cfg.Parser)
 	if rmsg != nil {
 		return self.SendData(rmsg, sync, to, svrId, st)
 	}
-	return nil
+	return nil, true
 }
 
 func (self *BusClientMgr) Close() {
