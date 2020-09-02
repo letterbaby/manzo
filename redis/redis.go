@@ -48,6 +48,9 @@ type IRedis interface {
 	SetExNx(args ...interface{}) (ret interface{}, err error)
 	TTL(args ...interface{}) (ret int64, err error)
 	HMset(args ...interface{}) (err error)
+	LPush(args ...interface{}) (err error)
+	LRange(args ...interface{}) (ret []interface{}, err error)
+	LTrim(args ...interface{}) (err error)
 }
 
 type RedisCluster struct {
@@ -458,6 +461,52 @@ func (self *RedisCluster) TTL(args ...interface{}) (ret int64, err error) {
 		logger.Error("RedisCluster:TTL msg:%s,p:%v", err.Error(), args)
 	}
 
+	return
+}
+
+func (self *RedisCluster) LPush(args ...interface{}) (err error) {
+	if len(args) != 3 {
+		err = noArgsFound
+		logger.Error("RedisCluster:LPush msg:%v", args)
+		return
+	}
+
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	_, err = self.Do("LPUSH", false, key, args[2])
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:LPush msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) LRange(args ...interface{}) (ret []interface{}, err error) {
+	if len(args) != 5 {
+		err = noArgsFound
+		logger.Error("RedisCluster:LRange msg:%v", args)
+	}
+
+	key := args[1].(string) + self.cfg.Dbase + ":" + args[2].(string)
+	ret, err = redis.Values(self.Do("LRANGE", args[0].(bool), key, args[3], args[4]))
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:LRange msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+func (self *RedisCluster) LTrim(args ...interface{}) (err error) {
+	if len(args) != 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:LTrim msg:%v", args)
+		return
+	}
+
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	_, err = self.Do("LTRIM", false, key, args[2], args[3])
+	if err != nil && err != redis.ErrNil {
+		logger.Error("RedisCluster:LTrim msg:%s,p:%v", err.Error(), args)
+	}
 	return
 }
 
