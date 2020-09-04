@@ -259,15 +259,16 @@ func (self *{{upperfc $t.Name}}Data) SetData(p []byte, clean bool) bool {
 		return false
 	}
 
-{{- range $f := .Fields}}	
+{{- range $f := .Fields}}
 	{{- if protow $f.Protorw}}
 	if tbl.{{upperfc $f.Name }} != nil {
 		self.Set{{upperfc $f.Name }}(tbl.Get{{upperfc $f.Name }}())
 	}
 	{{- else}}
-	//if tbl.{{upperfc $f.Name }} != nil {
-	//	self.Set{{upperfc $f.Name }}(tbl.Get{{upperfc $f.Name }}())
-	//}
+	// 只读的时候，不为空&重置
+	if tbl.{{upperfc $f.Name }} != nil && clean {
+		self.Set{{upperfc $f.Name }}(tbl.Get{{upperfc $f.Name }}())
+	}
 	{{- end}}
 {{- end}}
 	
