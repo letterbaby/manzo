@@ -116,14 +116,14 @@ func (self *MyOps) CreateTable(engine string, autoid int, comment string,
 		return false
 	}
 
-	sql = fmt.Sprintf("SELECT column_name FROM information_schema.columns WHERE table_schema='%s' AND table_name='%s'", self.cfg.Dbase, self.tbl)
+	sql = fmt.Sprintf("SELECT column_name as columnname FROM information_schema.columns WHERE table_schema='%s' AND table_name='%s'", self.cfg.Dbase, self.tbl)
 	rows, res, err := self.ExcuteSql(sql)
 	if err != nil {
 		logger.Fatal("MyOps:CreateTable sql:%v,i:%v", sql, err)
 		return false
 	}
 
-	name := res.Map("column_name")
+	name := res.Map("columnname")
 	for _, v := range rows {
 		self.cols[v.Str(name)] = &MyFiled{Data: 0}
 	}
