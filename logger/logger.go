@@ -81,7 +81,9 @@ type LogHandler struct {
 func (self *LogHandler) path(dir string, name string, rule int32) string {
 	now := time.Now()
 
-	fp := fmt.Sprintf("%s/%s", dir, name)
+	// 默认加上时间
+	a, e := getFileNameAndExt(name)
+	fp := fmt.Sprintf("%s/%s_%s%s", dir, a, now.Format("2006-01-02"), e)
 
 	if rule == 1 {
 		fp = fmt.Sprintf("%s/%d%02d%02d_%02d_%02d_%02d_%s",
@@ -95,7 +97,7 @@ func (self *LogHandler) path(dir string, name string, rule int32) string {
 	} else {
 		_, err := os.Stat(fp)
 		if err == nil || !os.IsNotExist(err) {
-			for i := 1; i < 9999999; i++ {
+			for i := 1; i < 9999; i++ {
 				np := fmt.Sprintf("%s.%d", fp, i)
 				_, err = os.Stat(np)
 				if err != nil && os.IsNotExist(err) {
