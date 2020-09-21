@@ -52,6 +52,7 @@ type Config struct {
 	Dir      string `json:"dir"`
 	Name     string `json:"name"`
 	Level    int32  `json:"level"` // 日志等级
+	NameDate bool   `json:"namedate"` // 名字加上时间
 }
 
 type Handler interface {
@@ -81,9 +82,11 @@ type LogHandler struct {
 func (self *LogHandler) path(dir string, name string, rule int32) string {
 	now := time.Now()
 
-	// 默认加上时间
-	a, e := getFileNameAndExt(name)
-	fp := fmt.Sprintf("%s/%s_%s%s", dir, a, now.Format("2006-01-02"), e)
+	fp := fmt.Sprintf("%s/%s", dir, name)
+	if self.cfg.NameDate {
+		a, e := getFileNameAndExt(name)
+		fp = fmt.Sprintf("%s/%s_%s%s", dir, a, now.Format("2006-01-02"), e)
+	}
 
 	if rule == 1 {
 		fp = fmt.Sprintf("%s/%d%02d%02d_%02d_%02d_%02d_%s",
