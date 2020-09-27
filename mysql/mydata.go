@@ -23,7 +23,7 @@ type MyData struct {
 	// InitTbl初始化的
 	Cols map[string]*MyFiled
 
-	Dirty       bool
+	Dirty bool
 
 	DbMgr *DBMgr
 }
@@ -69,7 +69,7 @@ func (self *uiCmd) OnExcuteSql(clt *DBClient) {
 
 	_, res, err := clt.ExcuteSql(self.Sql)
 	if err != nil {
-		logger.Error("uiCmd:OnExcuteSql sql:%s,i:%v", self.Sql, err)
+		logger.Error("uiCmd:OnExcuteSql sql:%s,len:%v,i:%v", self.Sql, len(self.Sql), err)
 		return
 	}
 
