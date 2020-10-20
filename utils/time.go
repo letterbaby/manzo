@@ -41,7 +41,7 @@ func TimeFromSec(sec int64) time.Time {
 
 // TimeFromStr 字符串到时间
 func TimeFromStr(t string) (time.Time, error) {
-	return time.Parse(TT, t)
+	return time.ParseInLocation(TT, t, time.Local)
 }
 
 // TodayZero 今天的0点
