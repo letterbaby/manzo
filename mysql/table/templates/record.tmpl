@@ -28,6 +28,7 @@ func (self *{{upperfc $t.Name}}Record) Init(buf []byte, flag int64) bool {
 	self.flag = flag
 	self.dirty = &Tbl{}
 	self.record = &Tbl{}
+	self.isDirty = false
 
 	err := proto.Unmarshal(buf, self.record)
 	if err != nil {
@@ -47,6 +48,8 @@ func (self *{{upperfc $t.Name}}Record) Dirty() []byte {
 		logger.Error("{{upperfc $t.Name}}Record:Dirty flag,i:%v", self.flag, err)
 		return nil
 	}
+	
+	self.isDirty = false
 	return d
 }
 
@@ -61,20 +64,47 @@ func (self *{{upperfc $t.Name}}Record) Record() []byte {
 
 // 属性的get{}, set{}
 
+func (self *{{upperfc $t.Name}}Record) GetValueByKey(k string) interface{} {
+	return self.record.GetValueByKey(k)
+}
+
 func (self *{{upperfc $t.Name}}Record) SetValueByKey(k string, v interface{}) {
-	//interface动态类型相同，并且动态的值
 	n := self.record.GetValueByKey(k)
-	if v == n {
+	
+	var pv interface{}
+	
+	switch k {
+	{{- range $f := .Fields}}
+	case "{{$f.Name}}":
+	{{- if int32x $f.Protot}}
+		vi := v.(int32)
+		if vi == n.(int32) {
+			return
+		}
+		pv = proto.Int32(vi)
+	{{- else if int64x $f.Protot}}
+		vi := v.(int64)
+		if vi == n.(int64) {
+			return
+		}
+		pv = proto.Int64(vi)
+	{{- else}}
+		vs := v.(string)
+		ns := n.(string)
+		if len(vs) == len(ns) && vs == ns {
+			return
+		}
+		pv = proto.String(vs)
+	{{- end}}
+	{{- end}}
+	default:
+		logger.Error("{{upperfc $t.Name}}Record:SetValueByKey k:%v", k)
 		return
 	}
 
-	self.dirty.SetValueByKey(k, v)
-	self.record.SetValueByKey(k, v)
+	self.dirty.SetValueByKey(k, pv)
+	self.record.SetValueByKey(k, pv)
 	self.isDirty = true
-}
-
-func (self *{{upperfc $t.Name}}Record) GetValueByKey(k string) interface{} {
-	return self.record.GetValueByKey(k)
 }
 
 {{- range $f := .Fields}}	
