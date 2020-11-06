@@ -125,6 +125,7 @@ func (self *{{upperfc $t.Name}}Record) Set{{upperfc $f.Name}}(v string) {
 
 	self.dirty.{{upperfc $f.Name }} = proto.String(v)
 	self.record.{{upperfc $f.Name }} = proto.String(v)
+	self.isDirty = true	
 }
 	{{- end}}
 {{- end}}
