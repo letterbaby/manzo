@@ -304,6 +304,9 @@ func main() {
 
 		cli.StringFlag{Name: "sql,s", Value: "./templates/sql.tmpl", Usage: "template file"},
 		cli.StringFlag{Name: "sout,so", Value: "", Usage: "sout *.sql file"},
+
+		cli.StringFlag{Name: "record,r", Value: "./templates/record.tmpl", Usage: "template file"},
+		cli.StringFlag{Name: "rout,ro", Value: "", Usage: "rout *.go file"},
 	}
 	app.Action = func(c *cli.Context) error {
 
@@ -327,6 +330,14 @@ func main() {
 			return nil
 		}
 		defer sout.Close()
+
+		rout, err := os.Create(c.String("rout"))
+		if err != nil {
+			logger.Error("%v", err)
+			return nil
+		}
+		defer rout.Close()
+
 		// parse
 		file, err := os.Open(c.String("file"))
 		if err != nil {
@@ -389,6 +400,18 @@ func main() {
 			return nil
 		}
 		err = tmpl.Execute(sout, p.info)
+		if err != nil {
+			logger.Error("%v", err)
+			return nil
+		}
+
+		fileName = filepath.Base(c.String("record"))
+		tmpl, err = template.New(fileName).Funcs(funcMap).ParseFiles(c.String("record"))
+		if err != nil {
+			logger.Error("%v", err)
+			return nil
+		}
+		err = tmpl.Execute(rout, p.info)
 		if err != nil {
 			logger.Error("%v", err)
 			return nil
