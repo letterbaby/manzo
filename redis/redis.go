@@ -265,6 +265,7 @@ func (self *RedisCluster) Hset(args ...interface{}) (err error) {
 	return
 }
 
+// HMset t,k,f,v
 func (self *RedisCluster) HMset(args ...interface{}) (err error) {
 	if len(args) < 4 {
 		err = noArgsFound

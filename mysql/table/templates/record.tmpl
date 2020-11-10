@@ -38,19 +38,36 @@ func (self *{{upperfc $t.Name}}Record) Init(buf []byte, flag int64) bool {
 	return true
 }
 
-func (self *{{upperfc $t.Name}}Record) Dirty() []byte {
-	if !self.isDirty {
-		return nil
-	}
-
-	d, err := proto.Marshal(self.dirty)
-	if err != nil {
-		logger.Error("{{upperfc $t.Name}}Record:Dirty flag,i:%v", self.flag, err)
-		return nil
+func (self *{{upperfc $t.Name}}Record) Dirty(f bool) []byte {
+	force := func() []byte {
+		d, err := proto.Marshal(self.record)
+		if err != nil {
+			logger.Error("{{upperfc $t.Name}}Record:Record flag,i:%v", self.flag, err)
+			return nil
+		}
+		return d
 	}
 	
-	self.isDirty = false
-	return d
+	dirty := func() []byte {
+		if !self.isDirty {
+			return nil
+		}
+
+		d, err := proto.Marshal(self.dirty)
+		if err != nil {
+			logger.Error("{{upperfc $t.Name}}Record:Dirty flag,i:%v", self.flag, err)
+			return nil
+		}
+		
+		self.isDirty = false
+		return d
+	}
+	
+	if !f {
+		return dirty()
+	}
+
+	return force()
 }
 
 func (self *{{upperfc $t.Name}}Record) Record() []byte {
