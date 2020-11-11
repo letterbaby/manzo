@@ -3,6 +3,7 @@ package bus
 import (
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/letterbaby/manzo/container"
@@ -62,6 +63,8 @@ type BusClient struct {
 	mgr *BusClientMgr
 
 	dest *NewSvrInfo
+
+	Authed int32
 }
 
 func newBusClient(sinfo *NewSvrInfo, mgr *BusClientMgr) *BusClient {
@@ -93,7 +96,7 @@ func (self *BusClient) init(cfg *network.Config) bool {
 		return false
 	}
 
-	self.Authed = false
+	self.OnAuthCheck = self.GetAuthed
 
 	self.caller = make(map[uint32]chan *network.RawMessage, 0)
 
@@ -116,17 +119,15 @@ func (self *BusClient) init(cfg *network.Config) bool {
 }
 
 func (self *BusClient) SetAuthed(a bool) {
-	self.Lock()
-	defer self.Unlock()
-
-	self.Authed = a
+	if a {
+		atomic.StoreInt32(&self.Authed, 1)
+	} else {
+		atomic.StoreInt32(&self.Authed, 0)
+	}
 }
 
 func (self *BusClient) GetAuthed() bool {
-	self.RLock()
-	defer self.RUnlock()
-
-	return self.Authed
+	return atomic.LoadInt32(&self.Authed) > 0
 }
 
 func (self *BusClient) RecvRouteMsg(msg *network.RawMessage) {
@@ -532,7 +533,9 @@ func (self *BusServer) RegClt(msg *CommonMessage) {
 	self.dest = req.Src
 	// 绑定id
 	self.Id = req.Src.Id
-	self.Authed = true
+	//self.OnAuthCheck = func() bool {
+	//	return true
+	//}
 	// 少序列化点数据
 	//msg.SvrInfo = nil
 

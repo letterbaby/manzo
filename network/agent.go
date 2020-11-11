@@ -33,18 +33,19 @@ type Agent struct {
 
 	flag int32 // 会话标记
 	// sync.Once die1 die2?
-	die1              chan struct{} // 会话关闭信号
-	die2              chan struct{} // 会话关闭信号
-	Authed            bool          // 认证过了
-	started           int32         // 当前状态
-	packetCountOneMin int           // 每分钟的包统计，用于RPM判断
+	die1 chan struct{} // 会话关闭信号
+	die2 chan struct{} // 会话关闭信号
+	//Authed            bool          // 认证过了
+	started           int32 // 当前状态
+	packetCountOneMin int   // 每分钟的包统计，用于RPM判断
 	packetMin         int
 
-	OnStart    func()
-	OnClose    func(flag int32)
-	OnMessage  func(msg *RawMessage) *RawMessage
-	OnInnerMsg func(msg interface{})
-	OnTimer    func(d int64)
+	OnStart     func()
+	OnClose     func(flag int32)
+	OnMessage   func(msg *RawMessage) *RawMessage
+	OnInnerMsg  func(msg interface{})
+	OnTimer     func(d int64)
+	OnAuthCheck func() bool // 回调认证检查
 
 	goroutineId uint64 // run线程ID
 }
@@ -138,7 +139,7 @@ func (self *Agent) Start(conn net.Conn) {
 	logger.Info("Agent:start conn:%v", self.Conn)
 	// reconnect
 	self.flag = 0
-	self.Authed = false
+
 	self.packetCountOneMin = 0
 	self.packetMin = 0
 	self.started = 0
@@ -281,10 +282,12 @@ func (self *Agent) timerCheck() bool {
 		return true
 	}
 
+	authed := self.OnAuthCheck == nil || self.OnAuthCheck()
+
 	// 不认证的连接都干了,调试阶段可以不开启
-	if !self.Authed || self.packetCountOneMin > self.cfg.Rpm {
+	if !authed || self.packetCountOneMin > self.cfg.Rpm {
 		logger.Warning("Agent:timercheck conn:%v,rpm:%v,athed:%v", self.Conn,
-			self.packetCountOneMin, self.Authed)
+			self.packetCountOneMin, authed)
 		return false
 	}
 
