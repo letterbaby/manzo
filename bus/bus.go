@@ -722,6 +722,10 @@ func (self *BusServerMgr) SendData(svrId int64, st int64,
 		return
 	}
 
+	defer func() {
+		buf.Free()
+	}()
+
 	if st > 0 {
 		buf.Ref()
 		svrs[st%int64(len(svrs))].SendMsg(buf, 1)
@@ -735,8 +739,6 @@ func (self *BusServerMgr) SendData(svrId int64, st int64,
 		buf.Ref()
 		svrs[rand.RandInt(0, int32(len(svrs)-1))].SendMsg(buf, 1)
 	}
-
-	buf.Free()
 }
 
 // st发送方式0:全部,-1:随机,>0:st_round
