@@ -32,7 +32,7 @@ func (self *{{upperfc $t.Name}}Record) Init(buf []byte, flag int64) bool {
 
 	err := proto.Unmarshal(buf, self.record)
 	if err != nil {
-		logger.Error("{{upperfc $t.Name}}Record:Init flag,i:%v", self.flag, err)
+		logger.Error("{{upperfc $t.Name}}Record:Init flag:%v,i:%v", self.flag, err)
 		return false
 	}
 	return true
@@ -42,7 +42,7 @@ func (self *{{upperfc $t.Name}}Record) Dirty(f bool) []byte {
 	force := func() []byte {
 		d, err := proto.Marshal(self.record)
 		if err != nil {
-			logger.Error("{{upperfc $t.Name}}Record:Record flag,i:%v", self.flag, err)
+			logger.Error("{{upperfc $t.Name}}Record:Record flag:%v,i:%v", self.flag, err)
 			return nil
 		}
 		return d
@@ -55,7 +55,7 @@ func (self *{{upperfc $t.Name}}Record) Dirty(f bool) []byte {
 
 		d, err := proto.Marshal(self.dirty)
 		if err != nil {
-			logger.Error("{{upperfc $t.Name}}Record:Dirty flag,i:%v", self.flag, err)
+			logger.Error("{{upperfc $t.Name}}Record:Dirty flag:%v,i:%v", self.flag, err)
 			return nil
 		}
 		
@@ -73,7 +73,7 @@ func (self *{{upperfc $t.Name}}Record) Dirty(f bool) []byte {
 func (self *{{upperfc $t.Name}}Record) Record() []byte {
 	d, err := proto.Marshal(self.record)
 	if err != nil {
-		logger.Error("{{upperfc $t.Name}}Record:Record flag,i:%v", self.flag, err)
+		logger.Error("{{upperfc $t.Name}}Record:Record flag:%v,i:%v", self.flag, err)
 		return nil
 	}
 	return d
@@ -115,7 +115,7 @@ func (self *{{upperfc $t.Name}}Record) SetValueByKey(k string, v interface{}) {
 	{{- end}}
 	{{- end}}
 	default:
-		logger.Error("{{upperfc $t.Name}}Record:SetValueByKey k:%v", k)
+		logger.Error("{{upperfc $t.Name}}Record:SetValueByKey flag:%v,k:%v", self.flag, k)
 		return
 	}
 
