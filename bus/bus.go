@@ -13,9 +13,9 @@ import (
 	"github.com/letterbaby/manzo/utils"
 )
 
-type BusDataCall func(msg *network.RawMessage) *network.RawMessage
 type BusRegCall func(svr *NewSvrInfo, flag int64)
 type BusNewCall func(id int64) bool
+type BusDataCall func(id int64, msg *network.RawMessage) *network.RawMessage
 
 type Config struct {
 	//SvrId int64 // 服务器ID
@@ -134,7 +134,7 @@ func (self *BusClient) RecvRouteMsg(msg *network.RawMessage) {
 	rmsg := NewRouteRawMessageIn(msg, self.mgr.cfg.Parser)
 
 	if msg.Seq == 0 {
-		self.mgr.RecvRouteMsg(rmsg)
+		self.mgr.RecvRouteMsg(self.Id, rmsg)
 		return
 	}
 
@@ -421,9 +421,9 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 	return rt, cliId
 }
 
-func (self *BusClientMgr) RecvRouteMsg(msg *network.RawMessage) {
+func (self *BusClientMgr) RecvRouteMsg(id int64, msg *network.RawMessage) {
 	if self.cfg.OnData != nil {
-		self.cfg.OnData(msg)
+		self.cfg.OnData(id, msg)
 	}
 }
 
@@ -560,7 +560,7 @@ func (self *BusServer) RecvRouteMsg(msg *network.RawMessage) {
 			if self.OnData != nil {
 				rmsg := NewRouteRawMessageIn(msg, self.Mgr.cfg.Parser)
 				if rmsg != nil {
-					self.OnData(rmsg)
+					self.OnData(self.Id, rmsg)
 				}
 			}
 		}
