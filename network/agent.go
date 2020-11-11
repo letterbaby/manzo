@@ -284,7 +284,7 @@ func (self *Agent) timerCheck() bool {
 	// 不认证的连接都干了,调试阶段可以不开启
 	if !self.Authed || self.packetCountOneMin > self.cfg.Rpm {
 		logger.Warning("Agent:timercheck conn:%v,rpm:%v,athed:%v", self.Conn,
-			self.packetCountOneMin, 1)
+			self.packetCountOneMin, self.Authed)
 		return false
 	}
 
