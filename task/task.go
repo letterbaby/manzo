@@ -69,6 +69,10 @@ func (self *Tasker) add(t ITask) bool {
 	return false
 }
 
+func (self *Tasker) Count() int {
+	return len(self.Msg)
+}
+
 func (self *Tasker) close() {
 	defer func() {
 		close(self.Msg)
@@ -123,6 +127,14 @@ func (self *TaskerMgr) AddTask(t ITask) bool {
 	}
 
 	return ter.add(t)
+}
+
+func (self *TaskerMgr) GetTotalCount() int {
+	count := 0
+	for _, v := range self.ters {
+		count = count + v.Count()
+	}
+	return count
 }
 
 func (self *TaskerMgr) Close() {

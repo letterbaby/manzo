@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/letterbaby/manzo/container"
 	"github.com/letterbaby/manzo/logger"
 	"github.com/letterbaby/manzo/network"
 	"github.com/letterbaby/manzo/rand"
@@ -65,6 +64,11 @@ type BusClient struct {
 	dest *NewSvrInfo
 
 	Authed int32
+
+	/*不走bus统一管理，维护跟上层业务关系很大，
+	不能统一标志,有好的想法可以提出
+	*/
+	Maintance int32
 }
 
 func newBusClient(sinfo *NewSvrInfo, mgr *BusClientMgr) *BusClient {
@@ -102,6 +106,8 @@ func (self *BusClient) init(cfg *network.Config) bool {
 
 	self.OnData = self.OnBusData
 	self.OnConnect = func() {
+		// 断线重连
+		self.SetMaintance(false)
 		self.callc = make(chan bool, 1)
 		self.mgr.OnMount(self)
 	}
@@ -109,6 +115,7 @@ func (self *BusClient) init(cfg *network.Config) bool {
 	self.OnDisconnect = func() {
 		self.mgr.UnRegBus(self)
 		close(self.callc)
+		self.SetMaintance(true)
 	}
 
 	self.OnPing = func() {
@@ -128,6 +135,18 @@ func (self *BusClient) SetAuthed(a bool) {
 
 func (self *BusClient) GetAuthed() bool {
 	return atomic.LoadInt32(&self.Authed) > 0
+}
+
+func (self *BusClient) SetMaintance(a bool) {
+	if a {
+		atomic.StoreInt32(&self.Maintance, 1)
+	} else {
+		atomic.StoreInt32(&self.Maintance, 0)
+	}
+}
+
+func (self *BusClient) IsMaintance() bool {
+	return atomic.LoadInt32(&self.Maintance) > 0
 }
 
 func (self *BusClient) RecvRouteMsg(msg *network.RawMessage) {
@@ -225,7 +244,7 @@ type BusClientMgr struct {
 	sync.RWMutex
 
 	//rbin int // 轮询
-	buss *container.ListMap
+	buss map[int64]*BusClient
 
 	cfg *Config
 
@@ -243,7 +262,7 @@ func (self *BusClientMgr) init(cfg *Config) {
 	parser.Register(uint16(Cmd_NONE), CommonMessage{})
 	self.parser = parser
 
-	self.buss = container.NewListMap()
+	self.buss = make(map[int64]*BusClient, 0)
 
 	self.cfg = cfg
 	for _, v := range cfg.BusCfg {
@@ -259,7 +278,7 @@ func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
 	self.Lock()
 	defer self.Unlock()
 
-	_, ok, _ := self.buss.Get(sinfo.Id)
+	_, ok := self.buss[sinfo.Id]
 	if ok {
 		logger.Error("BusClientMgr:NewBusClient id:%v", sinfo.Id)
 		return
@@ -267,7 +286,7 @@ func (self *BusClientMgr) RegBus(sinfo *NewSvrInfo) {
 
 	clt := newBusClient(sinfo, self)
 
-	self.buss.Add(sinfo.Id, clt)
+	self.buss[sinfo.Id] = clt
 
 	// 异步链接
 	go func() {
@@ -281,17 +300,17 @@ func (self *BusClientMgr) DelBus(sinfo *DelSvrInfo) {
 	logger.Info("BusClientMgr:DelBus id:%v,s:%v", sinfo.Id,
 		GetServerIdStr(sinfo.Id))
 
-	v, ok, _ := self.buss.Get(sinfo.Id)
+	v, ok := self.buss[sinfo.Id]
 	if !ok {
 		self.Unlock()
 		//logger.Error("BusClientMgr:DelBus id:%v", sinfo.DestId)
 		return
 	}
 
-	self.buss.Del(sinfo.Id)
+	delete(self.buss, sinfo.Id)
 	self.Unlock()
 
-	v.(*BusClient).Disconnect()
+	v.Disconnect()
 }
 
 func (self *BusClientMgr) UnRegBus(clt *BusClient) {
@@ -299,7 +318,7 @@ func (self *BusClientMgr) UnRegBus(clt *BusClient) {
 		GetServerIdStr(clt.Id))
 
 	self.RLock()
-	_, ok, _ := self.buss.Get(clt.Id)
+	_, ok := self.buss[clt.Id]
 	self.RUnlock()
 	if ok {
 		clt.SetAuthed(false)
@@ -315,14 +334,14 @@ func (self *BusClientMgr) regBusOk(info *NewSvrInfo) {
 		GetServerIdStr(info.Id))
 
 	self.RLock()
-	v, ok, _ := self.buss.Get(info.Id)
+	v, ok := self.buss[info.Id]
 	self.RUnlock()
 
 	if !ok {
 		logger.Error("BusClientMgr:BusOk id:%v", info.Id)
 		return
 	}
-	v.(*BusClient).SetAuthed(true)
+	v.SetAuthed(true)
 
 	if self.cfg.OnBusReg != nil {
 		self.cfg.OnBusReg(info, 1)
@@ -334,7 +353,7 @@ func (self *BusClientMgr) OnMount(clt *BusClient) {
 		GetServerIdStr(clt.Id))
 
 	self.RLock()
-	_, ok, _ := self.buss.Get(clt.Id)
+	_, ok := self.buss[clt.Id]
 	self.RUnlock()
 	if !ok {
 		logger.Error("BusClientMgr:OnMount id:%v", clt.Id)
@@ -371,18 +390,17 @@ func (self *BusClientMgr) OnBusData(msg *network.RawMessage) *network.RawMessage
 
 func (self *BusClientMgr) GetBusClientById(svrId int64) []*BusClient {
 	self.RLock()
-	hs := self.buss.Values()
-	self.RUnlock()
+	defer self.RUnlock()
 
 	t := make([]*BusClient, 0)
 
-	for _, v := range hs {
-		clt := v.(*BusClient)
+	for _, v := range self.buss {
 		// 必须认证过的
-		if clt.GetAuthed() && (svrId == 0 || (IsSameWorldFuncId(svrId, clt.Id) &&
-			(GetServerLogicId(svrId) == 0 ||
-				GetServerLogicId(svrId) == GetServerLogicId(clt.Id)))) {
-			t = append(t, clt)
+		if !v.IsMaintance() && v.GetAuthed() &&
+			(svrId == 0 || (IsSameWorldFuncId(svrId, v.Id) &&
+				(GetServerLogicId(svrId) == 0 ||
+					GetServerLogicId(svrId) == GetServerLogicId(v.Id)))) {
+			t = append(t, v)
 		}
 	}
 	return t
@@ -442,22 +460,31 @@ func (self *BusClientMgr) SendRouteMsg(destSvr int64, destSt int64,
 	return nil, 0
 }
 
+func (self *BusClientMgr) Maintance(id int64) {
+	self.RLock()
+	defer self.RUnlock()
+
+	v, ok := self.buss[id]
+	if !ok {
+		return
+	}
+
+	v.SetMaintance(true)
+}
+
 func (self *BusClientMgr) Close() {
 	self.RLock()
-	for _, v := range self.buss.Pairs() {
-		clt := v.Value.(*BusClient)
-		clt.Disconnect()
+	for _, v := range self.buss {
+		v.Disconnect()
 	}
 	self.RUnlock()
 
 	utils.ASyncWait(func() bool {
 		self.RLock()
-		hs := self.buss.Values()
-		self.RUnlock()
+		defer self.RUnlock()
 
-		for _, v := range hs {
-			clt := v.(*BusClient)
-			if clt.GetAuthed() {
+		for _, v := range self.buss {
+			if v.GetAuthed() {
 				return false
 			}
 		}
@@ -643,27 +670,15 @@ func (self *BusServerMgr) GetServersById(id int64) []*BusServer {
 
 	svrs := make([]*BusServer, 0)
 
-	if id == 0 {
-		for _, v := range self.servers {
-			svrs = append(svrs, v)
-		}
-		return svrs
-	}
-
-	lid := GetServerLogicId(id)
-	if lid != 0 {
-		v, ok := self.servers[id]
-		if ok {
-			svrs = append(svrs, v)
-		}
-		return svrs
-	}
-
 	for _, v := range self.servers {
-		if IsSameWorldFuncId(id, v.Id) {
+		// 必须认证过的
+		if id == 0 || (IsSameWorldFuncId(id, v.Id) &&
+			(GetServerLogicId(id) == 0 ||
+				GetServerLogicId(id) == GetServerLogicId(v.Id))) {
 			svrs = append(svrs, v)
 		}
 	}
+
 	return svrs
 }
 
