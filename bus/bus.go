@@ -2,6 +2,7 @@ package bus
 
 import (
 	"math"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -416,6 +417,11 @@ func (self *BusClientMgr) SendData(msg *network.RawMessage,
 		return nil, 0
 	}
 
+	// LISTMAP 要复制，效率多少提升？
+	sort.Slice(t, func(i int, k int) bool {
+		return t[i].Id > t[k].Id
+	})
+
 	var cliId int64
 	var rt *network.RawMessage
 	if st > 0 {
@@ -730,6 +736,11 @@ func (self *BusServerMgr) SendData(svrId int64, st int64,
 		logger.Error("BusServerMgr:SendData id:%v", svrId)
 		return
 	}
+
+	// LISTMAP 要复制，效率多少提升？
+	sort.Slice(svrs, func(i int, k int) bool {
+		return svrs[i].Id > svrs[k].Id
+	})
 
 	buf, err := self.parser.Serialize(msg)
 	if err != nil {
