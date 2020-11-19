@@ -25,6 +25,7 @@ type Config struct {
 	Agent func() IAgent `json:"-"` // 回话
 
 	ExHeaderSize bool
+	CheckSeq     bool
 }
 
 type TcpServer struct {

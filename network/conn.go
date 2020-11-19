@@ -32,8 +32,8 @@ type IConn interface {
 type Conn struct {
 	conn net.Conn
 
-	cfg *Config
-	//packetCount uint32 // 对收到的包进行计数
+	cfg         *Config
+	packetCount uint32 // 对收到的包进行计数
 }
 
 func (self *Conn) Init(cfg *Config, conn net.Conn) {
@@ -88,11 +88,12 @@ func (self *Conn) SendMsg(msg interface{}) error {
 	return err
 }
 
-func (self *Conn) check(buf *Buffer) error {
-	/*if msg.Seq != self.packetCount {
-		return nil, ErrSeq
-	}*/
-	//self.packetCount++
+// check 加密&解密&SEQ
+func (self *Conn) check(msg *RawMessage) error {
+	if self.cfg.CheckSeq && msg.Seq != self.packetCount {
+		return ErrSeq
+	}
+	self.packetCount++
 
 	return nil
 }
@@ -109,7 +110,7 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 	}
 
 	if self.cfg.ExHeaderSize {
-		sz = sz - 4//uint32
+		sz = sz - 4 //uint32
 	}
 
 	buf := NewBuffer(int(sz))
@@ -127,6 +128,11 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 	now := time.Now()
 
 	msg, err := self.cfg.Parser.Deserialize(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.check(msg)
 	if err != nil {
 		return nil, err
 	}
