@@ -34,6 +34,7 @@ type IRedis interface {
 	Close()   // 关闭
 	//Do(cmd string, args ...interface{})(interface{}, error)
 	Hset(args ...interface{}) (err error)
+	HsetNx(args ...interface{}) (err error)
 	Hget(args ...interface{}) (ret interface{}, err error)
 	RegScript(sh string, kc int, sc string) (err error)                 // 注册脚本
 	Script(sh string, args ...interface{}) (ret interface{}, err error) // 执行脚本
@@ -260,6 +261,23 @@ func (self *RedisCluster) Hset(args ...interface{}) (err error) {
 	_, err = self.Do("HSET", false, key, args[2], args[3])
 	if err != nil {
 		logger.Error("RedisCluster:hset msg:%s,p:%v", err.Error(), args)
+	}
+
+	return
+}
+
+// hset肯定是主
+func (self *RedisCluster) HsetNx(args ...interface{}) (err error) {
+	if len(args) != 4 {
+		err = noArgsFound
+		logger.Error("RedisCluster:HsetNx msg:%v", args)
+		return
+	}
+
+	key := args[0].(string) + self.cfg.Dbase + ":" + args[1].(string)
+	_, err = self.Do("HSETNX", false, key, args[2], args[3])
+	if err != nil {
+		logger.Error("RedisCluster:HsetNx msg:%s,p:%v", err.Error(), args)
 	}
 
 	return
