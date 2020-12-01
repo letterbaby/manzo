@@ -45,6 +45,9 @@ func (self *{{upperfc $t.Name}}Record) Dirty(f bool) []byte {
 			logger.Error("{{upperfc $t.Name}}Record:Record flag:%v,i:%v", self.flag, err)
 			return nil
 		}
+		
+		self.dirty = &Tbl{}
+		self.isDirty = false
 		return d
 	}
 	
@@ -59,6 +62,7 @@ func (self *{{upperfc $t.Name}}Record) Dirty(f bool) []byte {
 			return nil
 		}
 		
+		self.dirty = &Tbl{}
 		self.isDirty = false
 		return d
 	}
