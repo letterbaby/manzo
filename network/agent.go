@@ -315,5 +315,6 @@ func (self *Agent) rawSend(msg interface{}) {
 	err := self.Conn.SendMsg(msg)
 	if err != nil {
 		logger.Error("Agent:rawSend conn:%v,sendmsg:%v", self.Conn, err)
+		self.Close()
 	}
 }

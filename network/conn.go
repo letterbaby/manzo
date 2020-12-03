@@ -15,6 +15,8 @@ import (
 var (
 	ErrMsg = errors.New("message illegal")
 	ErrSeq = errors.New("seq is wrong")
+
+	ErrSize = errors.New("message size")
 )
 
 // Send做广播优化支持RawMessage跟Buffer
@@ -85,9 +87,17 @@ func (self *Conn) SendMsg(msg interface{}) error {
 		logger.Warning("Conn:SendMsg tt:%v", tt)
 	}
 	//logger.Debug("Conn:sendMsg conn:%v,data:%v,buf:%v", self, len(tbuf.Data), tbuf)
-	_, err := self.conn.Write(tbuf.Data)
 
-	return err
+	count := 0
+	for count < len(tbuf.Data) {
+		n, err := self.conn.Write(tbuf.Data[count:])
+		if err != nil {
+			return err
+		}
+		count += n
+	}
+
+	return nil
 }
 
 // check 加密&解密&SEQ
@@ -108,7 +118,7 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 	}
 
 	if sz <= 0 || sz > 1024*1024 {
-		return nil, ErrMsg
+		return nil, ErrSize
 	}
 
 	if self.cfg.ExHeaderSize {
@@ -122,9 +132,13 @@ func (self *Conn) RecvMsg() (*RawMessage, error) {
 
 	buf.Data = buf.Data[0:sz]
 
-	_, err = io.ReadFull(self.conn, buf.Data)
+	n, err := io.ReadFull(self.conn, buf.Data)
 	if err != nil {
 		return nil, err
+	}
+
+	if n != len(buf.Data) {
+		return nil, ErrMsg
 	}
 
 	now := time.Now()
