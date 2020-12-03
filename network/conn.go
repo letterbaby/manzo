@@ -76,14 +76,16 @@ func (self *Conn) SendMsg(msg interface{}) error {
 		tbuf = buf
 	}
 
+	defer func() {
+		tbuf.Free()
+	}()
+
 	tt := time.Now().Sub(now)
 	if tt > (time.Millisecond * 50) {
 		logger.Warning("Conn:SendMsg tt:%v", tt)
 	}
 	//logger.Debug("Conn:sendMsg conn:%v,data:%v,buf:%v", self, len(tbuf.Data), tbuf)
 	_, err := self.conn.Write(tbuf.Data)
-
-	tbuf.Free()
 
 	return err
 }
