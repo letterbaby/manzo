@@ -45,7 +45,7 @@ func (self *MyOps) init(cfg *Config) {
 	// 尝试连接mysql
 	err := self.conn.Connect()
 	if err != nil {
-		logger.Fatal("MyOps:init cfg:%v", cfg)
+		logger.Fatal("MyOps:init cfg:%v,i:%v", cfg, err)
 	}
 }
 
